@@ -89,25 +89,28 @@ def request_all_rates():
 
 
 def create_database():
-    request_all_rates()
-    excel_file = Path(__file__).with_name('rates_from_010122.xlsx')
-    rates = pd.read_excel(excel_file)
-
-    # SQLITE https://docs.python.org/3/library/sqlite3.html
-    # First, we need to create a new database and open a database connection to allow sqlite3 to work with it.
-    con = sqlite3.connect(db)
-
-    # In order to execute SQL statements and fetch results from SQL queries, we will need to use a database cursor
-    cur = con.cursor()
-
-
-    # https://www.dataquest.io/blog/excel-and-pandas/
-    rates_to_pands = pd.ExcelFile(excel_file)
-    rates_list = []
-    rates_list.append(rates_to_pands.parse('Courses'))
-    rates = pd.concat(rates_list)
-    rates = rates.set_index('Date')
-    rates.to_sql(db, con, if_exists="replace")
+    # if 'file exists':
+    #    os.remove(db)
+    try:
+        os.remove(db)
+        request_all_rates()
+        excel_file = Path(__file__).with_name('rates_from_010122.xlsx')
+        rates = pd.read_excel(excel_file)
+        # SQLITE https://docs.python.org/3/library/sqlite3.html
+        # First, we need to create a new database and open a database connection to allow sqlite3 to work with it.
+        con = sqlite3.connect(db)
+        # In order to execute SQL statements and fetch results from SQL queries, we will need to use a database cursor
+        cur = con.cursor()
+        # https://www.dataquest.io/blog/excel-and-pandas/
+        rates_to_pands = pd.ExcelFile(excel_file)
+        rates_list = []
+        rates_list.append(rates_to_pands.parse('Courses'))
+        rates = pd.concat(rates_list)
+        rates = rates.set_index('Date')
+        rates.to_sql('rates', con, if_exists='replace')
+        # add sumarry about the created file
+    except Exception as er:
+        logger.error(f'{er}')
     # or replace  https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_sql.html
 
 def request_today_rates():
@@ -140,7 +143,7 @@ def update_database():
         rates_list.append(rates_to_pands.parse('Courses'))
         rates = pd.concat(rates_list)
         rates = rates.set_index('Date')
-        rates.to_sql(db, con, if_exists="append")
+        rates.to_sql('rates', con, if_exists="append")
         # проверка на то нет ли текущей даты уже в DB
     except Exception as er:
         logger.error(er)
@@ -174,17 +177,29 @@ def rate_on_date(currency, date_rate):
         
         
 def debug_func():
-    con = sqlite3.connect(db, check_same_thread=False)
-    cur = con.cursor()
-    #print(today, "=>", row[0], type(row[0]))
-    
+    try:
+        con = sqlite3.connect(db, check_same_thread=False)
+        logger.info(f'connection to {db} established in DEBUG')
+        cur = con.cursor()
+        sql_query = f'SELECT Date FROM rates'
+        logger.info(f'effective query: {sql_query}')
+        cur.execute(sql_query)
+        res = cur.fetchall()
+        logger.info(f'got res: {res}')
+        print(res)
+        print(len(res))
+    except Exception as er:
+        logger.error({er})
+
 
 
 def main():
     try:
-        logger.info('initiated main')
-        request_today_rates()
-        logger.info('run request_today_rates func')
+        # create_database()
+        debug_func()
+        # logger.info('initiated main')
+        # request_today_rates()
+        # logger.info('run request_today_rates func')
     except Exception:
         raise Exception
     # request_today_rates()

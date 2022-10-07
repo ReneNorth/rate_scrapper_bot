@@ -26,15 +26,9 @@ from pathlib import Path
 # TO DO 
 # Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
 
-# path = os.getcwd()
-# print('Current Directory', path)
- 
-# prints parent directory
-# print('Parent directory', os.path.abspath(os.path.join(path, os.pardir)))
 
 load_dotenv()
 tg_token = os.getenv('TG_TOKEN')
-
 
 
 # logger
@@ -89,7 +83,7 @@ def currency_pick(update, context):
     chat = update.effective_chat
     button = ReplyKeyboardMarkup([
         ['USD', 'EUR'],
-        ['FRANK', 'RUB'],
+        ['CHF', 'RUB'],
         ['Все валюты'],
     ], resize_keyboard=True)
 
@@ -111,7 +105,7 @@ def pick_date(update, context):
     try:
         chat = update.effective_chat
         global currency
-        if update.message['text'] == 'USD' or update.message['text'] == 'EUR' or update.message['text'] == 'FRANK' or update.message['text'] == 'RUB':
+        if update.message['text'] == 'USD' or update.message['text'] == 'EUR' or update.message['text'] == 'CHF' or update.message['text'] == 'RUB':
             currency = [update.message['text']]
         elif update.message['text'] == 'Все валюты':
             currency = ['USD', 'EUR', 'CHF', 'RUB']
