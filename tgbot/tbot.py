@@ -1,27 +1,33 @@
 import requests
-import requests
 import logging
 import json
 import os
 import sys
 import pathlib
+import pprint
+from datetime import date
 from logging.handlers import RotatingFileHandler
-from pprint import pprint
+# костыль 1 - добавить в системные пути абсолютный путь
+# sys.path.append(r'/Users/yury/Dev/projects/rate_scrapper_bot')
+
+# костыль 2 - добавить parent
+parent = os.path.abspath('.')
+sys.path.insert(1, parent)
 
 from rate_scrapper.rate_ext import rate_on_date
-from tgbot.dummy import dummy
-# https://realpython.com/python-import/#basic-python-import
-
 from dotenv import load_dotenv
-from telegram import Bot, ReplyKeyboardMarkup
-from telegram.ext import Updater, Filters, MessageHandler, CommandHandler, StringRegexHandler, ConversationHandler
-
+from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram.ext import (
+    Updater,
+    Filters,
+    MessageHandler,
+    CommandHandler,
+    ConversationHandler)
 from pathlib import Path
 
 
 # TO DO 
 # Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
-
 
 # path = os.getcwd()
 # print('Current Directory', path)
@@ -30,13 +36,8 @@ from pathlib import Path
 # print('Parent directory', os.path.abspath(os.path.join(path, os.pardir)))
 
 load_dotenv()
-
-DEBUG = False
-url_mir = 'https://mironline.ru/support/list/kursy_mir/'
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'}
 tg_token = os.getenv('TG_TOKEN')
 
-current_list = []
 
 
 # logger
@@ -51,7 +52,7 @@ logging.basicConfig(
            '- %(funcName)s - %(levelname)s - %(message)s - %(name)s',
     level=logging.INFO,
     filename='main.log',
-    filemode='w'
+    filemode='a'
 )
 handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
@@ -68,12 +69,17 @@ bot = Bot(token=tg_token)
 updater = Updater(token=tg_token)
 
 
+CURRENCY, DATE = range(2)
+currency = ''
+
+# def send_message(update, message):
+#     chat = update.effective_chat
+#     bot.send_message(chat_id=chat.id, message=message)
+
 
 def wake_up(update, context):
+    logger.info('User woke up the bot')
     chat = update.effective_chat
-    # name = update.message.chat.first_name
-    # photo = requests.get(CAT_URL).json()[0].get('url')
-    # вложенный список - это новый ряд кнопок
     button = ReplyKeyboardMarkup([
         ['/rate_on_date'],
         ['/start'],
@@ -86,29 +92,12 @@ def wake_up(update, context):
     )
 
 
-def send_message(update, message):
-    chat = update.effective_chat
-    bot.send_message(chat_id=chat.id, message=message)
-
-
-
-def get_course(update, message):
-    chat = update.effective_chat
-    rate = rate_on_date() # <- остановился на том, что
-    # вызов функции с датой и валютами из сообщения
-
-
 def currency_pick(update, context):
     chat = update.effective_chat
-    # name = update.message.chat.first_name
-    # photo = requests.get(CAT_URL).json()[0].get('url')
-    # вложенный список - это новый ряд кнопок
     button = ReplyKeyboardMarkup([
-        ['/USD', '/EUR'],
-        ['/FRANK', '/RUB'],
-        ['/all_currencies'],
-        ['/start']
-        
+        ['USD', 'EUR'],
+        ['FRANK', 'RUB'],
+        ['Все валюты'],
     ], resize_keyboard=True)
 
     context.bot.send_message(
@@ -116,93 +105,91 @@ def currency_pick(update, context):
         reply_markup=button,
         text=('Выбери из предложенных валют')
     )
+    logger.info(CURRENCY, '<- вернули')
+    return CURRENCY
 
 
-    
 def pick_date(update, context):
+    """ Вызвается при попадании одной из валют в чат """
+    user = update.message.from_user
+    button = ReplyKeyboardMarkup([
+        ['Сегодня'],
+    ], resize_keyboard=True)
     try:
         chat = update.effective_chat
-        #wjdata = requests.get('url').json()
-        #wjdata['data']['current_condition'][0]['temp_C']
-        currency = update.message['text'][1:]
-        print(currency, '<- update context args')
+        global currency
+        if update.message['text'] == 'USD' or update.message['text'] == 'EUR' or update.message['text'] == 'FRANK' or update.message['text'] == 'RUB':
+            currency = [update.message['text']]
+        elif update.message['text'] == 'Все валюты':
+            currency = ['USD', 'EUR', 'CHF', 'RUB']
+        logger.info(currency, '<- currency')
         context.bot.send_message(
             chat_id=chat.id,
-            text=(f'{currency}')
+            reply_markup=button,
+            text=(f'Введи дату в формате 01.01.22 для валют {currency}')
         )
-        find_rate(chat, context, currency)
+        return DATE
     except Exception as er:
         logger.error(f'{er}')
         return er
 
 
-def find_rate(chat, context, currency):
-    logger.info('find rate')
+def find_rate(update, context):
+    # не DRY - эту клавиатуру вынести наружу
+    # или найти способ вызвать начало диалога
+    button = ReplyKeyboardMarkup([
+        ['/rate_on_date'],
+    ], resize_keyboard=True)
+    chat = update.effective_chat
+    if update.message['text'] == 'Сегодня':
+        date_rate = date.today().strftime('%d.%m.%Y')
+    else:
+        date_rate = update.message['text']
     try:
+        logger.info(f'call rate_on_date with args: {currency}, {date_rate}')
+        res = rate_on_date(currency, date_rate)
+        # text = 
         context.bot.send_message(
             chat_id=chat.id,
-            text=(f' {currency}, введи дату'))
+            reply_markup=button,
+            text=(f'на {date_rate} курсы: {res}')
+        )
+        return ConversationHandler.END
     except Exception as er:
-        logger.error(f'{er}')
-        return er
-    
-def date_try(update, context):
-    try:
-        logger.info('date try func')
-        chat = update.effective_chat
-        message = update.message['text']
-        context.bot.send_message(chat_id=chat.id, text=(f'{message}'))
-    except Exception as er:
-        logger.error(f'{er}')
-        return er
-    
-    
+        logger.error(er)
 
 
-# служебные функции
-# async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
-    
-
-# def rate_on_date(update, context):
-    
-    #page_text = get_page_content(url_mir)
-    # тут будет вызов функции из другого файла
-
-    
-    # chat = update.effective_chat
-    # context.bot.send_message(chat_id=chat.id, text=message)
-    
+# def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+def cancel(update: Update, context):
+    """Cancels and ends the conversation."""
+    user = update.message.from_user
+    logger.info("User %s canceled the conversation.", user.first_name)
+    update.message.reply_text("Bye! I hope we can talk again some day.",
+                              reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
 
 
 def main():
-    logger.info('start')
-    print('MAIN <-------')
+    print(sys.path, 'TBOT sys.path')
+    print(sys.argv, 'TBOT argv.path')
     
-    
-    
+    logger.info('bot initiated')
+    print('bot initiated')
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
-    updater.dispatcher.add_handler(CommandHandler('rate_on_date', currency_pick))
-    updater.dispatcher.add_handler(CommandHandler('all_currencies', pick_date))
-    updater.dispatcher.add_handler(CommandHandler('RUB', pick_date, pass_args=True))
-    updater.dispatcher.add_handler(CommandHandler('USD', pick_date))
-    updater.dispatcher.add_handler(CommandHandler('EUR', pick_date))
-    updater.dispatcher.add_handler(CommandHandler('FRANK', pick_date))
-    updater.dispatcher.add_handler(MessageHandler(Filters.regex('^[0-9]{1,2}\\.[0-9]{1,2}'), date_try))
-    # 3.22 or 03.22
-    # https://uibakery.io/regex-library/date-regex-python
-    
-    # updater.dispatcher.add_handler(CommandHandler('rate_on_date', get_course))
-    
-    
-    
-    # служебные хэндлеры
-    # https://github.com/python-telegram-bot/python-telegram-bot/wiki/Extensions-%E2%80%93-Your-first-Bot
-    # unknown_handler = MessageHandler(filters.COMMAND, unknown)
-    # application.add_handler(unknown_handler) 
+    updater.dispatcher.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('rate_on_date', currency_pick)],
+        states={
+            CURRENCY: [MessageHandler(
+                Filters.regex('^(USD|EUR|CHF|RUB|Все валюты)$'),
+                pick_date)],
+            DATE: [MessageHandler(
+                Filters.regex('^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'),
+                find_rate)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        ))
+
     updater.start_polling()
-    
-    
 
 
 if __name__ == '__main__':

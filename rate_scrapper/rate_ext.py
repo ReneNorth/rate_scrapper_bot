@@ -12,6 +12,12 @@ import logging
 from pathlib import Path
 
 
+# TO DO 
+# Добавить удаление эксель файлов после обновления базы
+# если такой даты нет, то сделать запрос таких данных,
+# добавить в БД и вернуть ответ
+
+
 # logger
 logger = logging.getLogger(__name__)
 logging.StreamHandler(stream=sys.stdout)
@@ -24,7 +30,7 @@ logging.basicConfig(
            '- %(funcName)s - %(levelname)s - %(message)s - %(name)s',
     level=logging.INFO,
     filename='main.log',
-    filemode='w'
+    filemode='a'
 )
 handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
@@ -43,12 +49,16 @@ test_link = 'https://nationalbank.kz/ru/exchangerates/ezhednevnye-oficialnye-ryn
 
 
 DEBUG = False
-url_mir = 'https://mironline.ru/support/list/kursy_mir/'
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'}
 tg_token = os.getenv('TG_TOKEN')
 
 # current_list = []
-id_rates = [5, 6, 16, 23] 
+id_rates = [5, 6, 16, 23]
+
+
+# path to DB 
+path = os.path.dirname(os.path.abspath(__file__))
+db = os.path.join(path, 'rates_db.db')
 
 
 def form_link(id_rates, begin_date, end_date):
@@ -62,15 +72,32 @@ def form_link(id_rates, begin_date, end_date):
         logger.error(er)
 
 
+def request_all_rates():
+    try:
+        begin_date = '01.01.2022'
+        end_date = date.today()
+        url = form_link(id_rates, begin_date, end_date)
+        logger.info(f'ОТПРАВЛЯЕМ запрос с url {url} и headers {headers}')
+        r = requests.get(url, headers=headers)
+        # response_text = r.content
+        logger.info((f'ОТПРАВИЛИ запрос с url {url} и headers {headers}'))
+        with open(os.path.join(path, 'rates_from_010122.xlsx'), 'wb') as f:
+            logger.info((f'Сохраняем файл'))
+            f.write(r.content)
+    except Exception as er:
+        logger.error(er)
+    
+
 
 
 def create_database():
-    excel_file = Path(__file__).with_name('rates.xlsx')
+    request_all_rates()
+    excel_file = Path(__file__).with_name('rates_from_010122.xlsx')
     rates = pd.read_excel(excel_file)
 
     # SQLITE https://docs.python.org/3/library/sqlite3.html
     # First, we need to create a new database and open a database connection to allow sqlite3 to work with it.
-    con = sqlite3.connect("rates_db.db")
+    con = sqlite3.connect(db)
 
     # In order to execute SQL statements and fetch results from SQL queries, we will need to use a database cursor
     cur = con.cursor()
@@ -82,7 +109,7 @@ def create_database():
     rates_list.append(rates_to_pands.parse('Courses'))
     rates = pd.concat(rates_list)
     rates = rates.set_index('Date')
-    rates.to_sql('rates_db', con, if_exists="replace")
+    rates.to_sql(db, con, if_exists="replace")
     # or replace  https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_sql.html
 
 def request_today_rates():
@@ -92,12 +119,11 @@ def request_today_rates():
         end_date = date.today()
         
         url = form_link(id_rates, begin_date, end_date)
-        print(url)
         logger.info(f'ОТПРАВЛЯЕМ запрос с url {url} и headers {headers}')
         r = requests.get(url, headers=headers)
         # response_text = r.content
         logger.info((f'ОТПРАВИЛИ запрос с url {url} и headers {headers}'))
-        with open('rates_today.xlsx', 'wb') as f:
+        with open(os.path.join(path, 'rates_from_010122.xlsx'), 'wb') as f:
             logger.info((f'Сохраняем файл'))
             f.write(r.content)
     except Exception as er:
@@ -106,87 +132,65 @@ def request_today_rates():
 
 def update_database():
     try:
-        con = sqlite3.connect("rates_db.db")
+        logger.info(f'подключается к базе {db} в {path}')
+        con = sqlite3.connect(db)
+        logger.info('')
+        logger.info(f'успешное подключение {db} в {path}')
         cur = con.cursor()
-        # request_today_rates() 
-        # устанавливаем соединение с существующей DB
         excel_file = Path(__file__).with_name('rates_today.xlsx')
-        
-    
         rates = pd.read_excel(excel_file)
-
-        # SQLITE https://docs.python.org/3/library/sqlite3.html
-        # First, we need to create a new database and open a database connection to allow sqlite3 to work with it.
-
-
-        # https://www.dataquest.io/blog/excel-and-pandas/
         rates_to_pands = pd.ExcelFile(excel_file)
         rates_list = []
         rates_list.append(rates_to_pands.parse('Courses'))
         rates = pd.concat(rates_list)
         rates = rates.set_index('Date')
-        rates.to_sql('rates_db', con, if_exists="append")
+        rates.to_sql(db, con, if_exists="append")
         # проверка на то нет ли текущей даты уже в DB
     except Exception as er:
         logger.error(er)
 
 
-def rate_on_date(currency, date):
+def rate_on_date(currency, date_rate):
+    # добавить проверку даты на адекватность
     try:
-        con = sqlite3.connect("rates_db.db")
-        # In order to execute SQL statements and fetch results
-        # from SQL queries, we will need to use a database cursor
+        logger.info('establish connection with the DB')
+        # странно что connect создаёт файл в момент коннекшена, посмотреть как выкидывать ошибку если бд не существовало
+        con = sqlite3.connect(db, check_same_thread=False)
+        logger.info('connection established')
         cur = con.cursor()
-        print('SQLite output below')
-        logger.info('prepare sql query')
-        list_of_currencies = ', '.join([currency])
-        sql_query = f'SELECT {list_of_currencies} FROM rates_db WHERE Date="{date}"'
-        logger.info(f'effective query" {sql_query}')
-        cur.execute(sql_query)
-        res = cur.fetchall()
-        print(res)
-        return res
+        logger.info('preparing sql query')
+        # list_of_currencies = ', '.join(currency)
+        currency_dict = {}
+        for item in currency: 
+            sql_query = f'SELECT {item} FROM rates WHERE Date="{str(date_rate)}"'
+            logger.info(f'effective query: {sql_query}')
+            cur.execute(sql_query)
+            res = cur.fetchall()
+            if res is None:
+                raise Exception
+            currency_dict[item] = res[0]
+            logger.info(f' результат запроса: {res}')
+        if not currency_dict:
+            raise Exception
+        return currency_dict
     except Exception as er:
         logger.error(er)
+        
+        
+def debug_func():
+    con = sqlite3.connect(db, check_same_thread=False)
+    cur = con.cursor()
+    #print(today, "=>", row[0], type(row[0]))
+    
 
 
 def main():
+    debug_func()
     # request_today_rates()
-    update_database()
+    # update_database()
+    # create_database()
+    return print('run main')
 
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-"""
-wb2 = load_workbook('Tue, 27 Sep 2022 07-06-04.xlsx')
-print(wb2.sheetnames)
-
-dest_filename = 'Tue, 27 Sep 2022 07-06-04.xlsx'
-ws1 = wb.active
-ws1.title = "range names"
-
-for row in range(1, 40):
-    ws1.append(range(600))
-
-ws2 = wb.create_sheet(title="Pi")
-ws2['F5'] = 3.14
-ws3 = wb.create_sheet(title="Data")
-for row in range(10, 20):
-    for col in range(27, 54):
-        _ = ws3.cell(column=col, row=row, value="{0}".format(get_column_letter(col)))
-print(ws3['AA10'].value)
-wb.save(filename = dest_filename)
-"""
-
-
-
-
