@@ -1,10 +1,7 @@
 import requests
 import logging
-import json
 import os
 import sys
-import pathlib
-import pprint
 from datetime import date
 from logging.handlers import RotatingFileHandler
 # костыль 1 - добавить в системные пути абсолютный путь
@@ -71,10 +68,6 @@ updater = Updater(token=tg_token)
 
 CURRENCY, DATE = range(2)
 currency = ''
-
-# def send_message(update, message):
-#     chat = update.effective_chat
-#     bot.send_message(chat_id=chat.id, message=message)
 
 
 def wake_up(update, context):
@@ -170,9 +163,6 @@ def cancel(update: Update, context):
 
 
 def main():
-    print(sys.path, 'TBOT sys.path')
-    print(sys.argv, 'TBOT argv.path')
-    
     logger.info('bot initiated')
     print('bot initiated')
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
