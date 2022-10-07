@@ -136,3 +136,4 @@ response.html
 
 # Ignore All (xlsx) files
 *.xlsx
+*.xls
