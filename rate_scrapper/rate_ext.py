@@ -117,11 +117,9 @@ def request_today_rates():
     try:
         begin_date = date.today()
         end_date = date.today()
-        
         url = form_link(id_rates, begin_date, end_date)
         logger.info(f'ОТПРАВЛЯЕМ запрос с url {url} и headers {headers}')
         r = requests.get(url, headers=headers)
-        # response_text = r.content
         logger.info((f'ОТПРАВИЛИ запрос с url {url} и headers {headers}'))
         with open(os.path.join(path, 'rates_from_010122.xlsx'), 'wb') as f:
             logger.info((f'Сохраняем файл'))
@@ -185,12 +183,15 @@ def debug_func():
 
 
 def main():
-    debug_func()
+    try:
+        logger.info('initiated main')
+        request_today_rates()
+        logger.info('run request_today_rates func')
+    except Exception:
+        raise Exception
     # request_today_rates()
     # update_database()
     # create_database()
-    return print('run main')
-
 
 if __name__ == '__main__':
     main()
