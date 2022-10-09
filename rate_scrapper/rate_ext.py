@@ -122,7 +122,7 @@ def request_today_rates():
         logger.info(f'ОТПРАВЛЯЕМ запрос с url {url} и headers {headers}')
         r = requests.get(url, headers=headers)
         logger.info((f'ОТПРАВИЛИ запрос с url {url} и headers {headers}'))
-        with open(os.path.join(path, 'rates_from_010122.xlsx'), 'wb') as f:
+        with open(os.path.join(path, 'rates_today.xlsx'), 'wb') as f:
             logger.info((f'Сохраняем файл'))
             f.write(r.content)
     except Exception as er:
@@ -131,9 +131,9 @@ def request_today_rates():
 
 def update_database():
     try:
+        # request_today_rates()
         logger.info(f'подключается к базе {db} в {path}')
         con = sqlite3.connect(db)
-        logger.info('')
         logger.info(f'успешное подключение {db} в {path}')
         cur = con.cursor()
         excel_file = Path(__file__).with_name('rates_today.xlsx')
@@ -147,6 +147,7 @@ def update_database():
         # проверка на то нет ли текущей даты уже в DB
     except Exception as er:
         logger.error(er)
+        return Exception
 
 
 def rate_on_date(currency, date_rate):
@@ -160,7 +161,7 @@ def rate_on_date(currency, date_rate):
         logger.info('preparing sql query')
         # list_of_currencies = ', '.join(currency)
         currency_dict = {}
-        for item in currency: 
+        for item in currency:
             sql_query = f'SELECT {item} FROM rates WHERE Date="{str(date_rate)}"'
             logger.info(f'effective query: {sql_query}')
             cur.execute(sql_query)
@@ -195,11 +196,14 @@ def debug_func():
 
 def main():
     try:
+        logger.info('started main')
         # create_database()
-        debug_func()
+        # debug_func()
         # logger.info('initiated main')
-        # request_today_rates()
+        update_database()
         # logger.info('run request_today_rates func')
+        logger.info('job is done')
+        print('job is done')
     except Exception:
         raise Exception
     # request_today_rates()
