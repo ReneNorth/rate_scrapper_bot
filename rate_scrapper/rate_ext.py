@@ -116,8 +116,8 @@ def create_database():
 def request_today_rates():
     # тянем сегодняшнюю дату и добаввляем её в request
     try:
-        begin_date = date.today()
-        end_date = date.today()
+        begin_date ='10.10.2022'
+        end_date = '10.10.2022'
         url = form_link(id_rates, begin_date, end_date)
         logger.info(f'ОТПРАВЛЯЕМ запрос с url {url} и headers {headers}')
         r = requests.get(url, headers=headers)
@@ -131,7 +131,7 @@ def request_today_rates():
 
 def update_database():
     try:
-        # request_today_rates()
+        request_today_rates()
         logger.info(f'подключается к базе {db} в {path}')
         con = sqlite3.connect(db)
         logger.info(f'успешное подключение {db} в {path}')
