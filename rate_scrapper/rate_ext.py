@@ -200,7 +200,7 @@ def main():
         # create_database()
         # debug_func()
         # logger.info('initiated main')
-        # update_database()
+        update_database()
         # logger.info('run request_today_rates func')
         logger.info('job is done')
         print('job is done')
