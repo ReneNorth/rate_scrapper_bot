@@ -11,7 +11,7 @@ from logging.handlers import RotatingFileHandler
 parent = os.path.abspath('.')
 sys.path.insert(1, parent)
 
-from rate_scrapper.rate_ext import rate_on_date
+from rate_scrapper.rate_ext import rate_on_date, update_database
 from dotenv import load_dotenv
 from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
@@ -69,13 +69,15 @@ def wake_up(update, context):
     chat = update.effective_chat
     button = ReplyKeyboardMarkup([
         ['/rate_on_date'],
+        ['/update'],
         ['/start'],
     ], resize_keyboard=True)
 
     context.bot.send_message(
         chat_id=chat.id,
         reply_markup=button,
-        text=('Отправляю курсы валют')
+        text=('Отправляю курсы валют. /rate_on_date вёрнет курсы валют на сегодня. '
+              '/update обновит базу данных сегодняшними данными. Если бот завис, введи /cancel.' )
     )
 
 
@@ -126,6 +128,7 @@ def find_rate(update, context):
     # или найти способ вызвать начало диалога
     button = ReplyKeyboardMarkup([
         ['/rate_on_date'],
+        ['/update'],
     ], resize_keyboard=True)
     chat = update.effective_chat
     if update.message['text'] == 'Сегодня':
@@ -135,7 +138,6 @@ def find_rate(update, context):
     try:
         logger.info(f'call rate_on_date with args: {currency}, {date_rate}')
         res = rate_on_date(currency, date_rate)
-        # text = 
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
@@ -145,6 +147,26 @@ def find_rate(update, context):
     except Exception as er:
         logger.error(er)
 
+
+def update_today(update, context):
+    try:
+        button = ReplyKeyboardMarkup([
+            ['/rate_on_date'],
+            ], resize_keyboard=True)
+        logger.info('вызываем update_database')
+        update_database()
+        logger.info(f'успешное обновление данных')
+        currency = ['USD', 'EUR', 'CHF', 'RUB']
+        today_rates = rate_on_date(currency, date.today().strftime('%d.%m.%Y'))
+        # date today - 2022-10-12
+        # format needed 12.10.2022
+        print(currency, date.today())
+        print(today_rates)
+        update.message.reply_text(f'добавили в БД {today_rates}',
+                                  reply_markup=button,
+                                  )
+    except Exception as er:
+        logger.error(er)
 
 # def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def cancel(update: Update, context):
@@ -159,6 +181,7 @@ def cancel(update: Update, context):
 def main():
     logger.info('bot initiated')
     print('bot initiated')
+    updater.dispatcher.add_handler(CommandHandler('update', update_today))
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
     updater.dispatcher.add_handler(ConversationHandler(
         entry_points=[CommandHandler('rate_on_date', currency_pick)],
