@@ -162,7 +162,7 @@ def update_today(update, context):
         # format needed 12.10.2022
         print(currency, date.today())
         print(today_rates)
-        update.message.reply_text(f'добавили в БД {today_rates}',
+        update.message.reply_text(f'добавили в БД данные на сегодня: {today_rates}',
                                   reply_markup=button,
                                   )
     except Exception as er:
