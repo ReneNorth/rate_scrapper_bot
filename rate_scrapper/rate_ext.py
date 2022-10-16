@@ -11,9 +11,13 @@ from pathlib import Path
 
 
 # TO DO 
-# Добавить удаление эксель файлов после обновления базы
+# - Добавить удаление эксель файлов после обновления базы
 # если такой даты нет, то сделать запрос таких данных,
-# добавить в БД и вернуть ответ
+
+# - добавить в БД и вернуть ответ
+
+# - Вынести подключение к базе в отдельную функцию, потому что эту чать
+# тоже надо будет завернуть в try/except
 
 
 # logger
@@ -52,6 +56,7 @@ tg_token = os.getenv('TG_TOKEN')
 
 # current_list = []
 id_rates = [5, 6, 16, 23]
+rates_tname = 'rates'
 
 
 # path to DB 
@@ -85,8 +90,6 @@ def request_all_rates():
     except Exception as er:
         logger.error(er)
     
-
-
 
 def create_database():
     # if 'file exists':
@@ -175,8 +178,22 @@ def rate_on_date(currency, date_rate):
         return currency_dict
     except Exception as er:
         logger.error(er)
-        
-        
+
+
+def weighted_avg(begin_month, end_month):
+    try:
+        con = sqlite3.connect(db, check_same_thread=False)
+        logger.info(f'connection to {db} established in DEBUG')
+        cur = con.cursor()
+        month = '09'
+        data = pd.read_sql(f'SELECT * FROM rates WHERE Date LIKE "__.{month}.2022"', con)
+        # data = pd.read_sql_table('rates', con)
+        print(data)
+    
+    except Exception as er:
+        logger.error(er)
+
+
 def debug_func():
     try:
         con = sqlite3.connect(db, check_same_thread=False)
@@ -193,14 +210,14 @@ def debug_func():
         logger.error({er})
 
 
-
 def main():
     try:
         logger.info('started main')
-        # create_database()
+        # weighted_avg(1, 1)
+        create_database()
         # debug_func()
         # logger.info('initiated main')
-        update_database()
+        # update_database()
         # logger.info('run request_today_rates func')
         logger.info('job is done')
         print('job is done')
