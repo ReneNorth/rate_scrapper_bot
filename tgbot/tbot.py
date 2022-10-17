@@ -1,7 +1,9 @@
 import requests
 import logging
+import json
 import os
 import sys
+import re
 from datetime import date
 from logging.handlers import RotatingFileHandler
 # костыль 1 - добавить в системные пути абсолютный путь
@@ -23,13 +25,16 @@ from telegram.ext import (
 from pathlib import Path
 
 
-# TO DO 
+# TO DO
+# убрать лишние символы 
+# может быть есть перенос по строкам 
+# Попробовать переписать кнопки на классы 
 # test
 # Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
 
 
 load_dotenv()
-tg_token = os.getenv('TG_TOKEN')
+tg_token = os.getenv('TG_TOKEN_TEST')
 
 
 # logger
@@ -61,7 +66,7 @@ bot = Bot(token=tg_token)
 updater = Updater(token=tg_token)
 
 
-CURRENCY, DATE = range(2)
+CURRENCY, DATE, TEST = range(3)
 currency = ''
 
 
@@ -70,6 +75,7 @@ def wake_up(update, context):
     chat = update.effective_chat
     button = ReplyKeyboardMarkup([
         ['/rate_on_date'],
+        ['/rate_for_period'],
         ['/update'],
         ['/start'],
     ], resize_keyboard=True)
@@ -108,7 +114,12 @@ def pick_date(update, context):
     try:
         chat = update.effective_chat
         global currency
-        if update.message['text'] == 'USD' or update.message['text'] == 'EUR' or update.message['text'] == 'CHF' or update.message['text'] == 'RUB':
+        
+        if (update.message['text'] == 'USD'
+            or update.message['text'] == 'EUR'
+            or update.message['text'] == 'CHF'
+            or update.message['text'] == 'RUB'):
+            
             currency = [update.message['text']]
         elif update.message['text'] == 'Все валюты':
             currency = ['USD', 'EUR', 'CHF', 'RUB']
@@ -139,10 +150,23 @@ def find_rate(update, context):
     try:
         logger.info(f'call rate_on_date with args: {currency}, {date_rate}')
         res = rate_on_date(currency, date_rate)
+        # print(res, '<- it is res')
+        # print(type(res))
+        # json.dumps(res)
+        res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res))
+        
+        # res_msg = f'курсы на {date_rate}:'
+        # # for cur, value in res.items():
+        # #     res_msg.join([f'{cur}', ':', f'{value}'])
+
+        # for key, value in res.items():
+        #     res_msg += key, value[0]
+            
+            
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
-            text=(f'на {date_rate} курсы: {res}')
+            text=(f'на {date_rate} курсы: {res_msg}')
         )
         return ConversationHandler.END
     except Exception as er:
@@ -159,11 +183,8 @@ def update_today(update, context):
         logger.info(f'успешное обновление данных')
         currency = ['USD', 'EUR', 'CHF', 'RUB']
         today_rates = rate_on_date(currency, date.today().strftime('%d.%m.%Y'))
-        # date today - 2022-10-12
-        # format needed 12.10.2022
-        print(currency, date.today())
-        print(today_rates)
-        update.message.reply_text(f'добавили в БД данные на сегодня: {today_rates}',
+        today_rates_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', today_rates)
+        update.message.reply_text(f'добавили в БД данные на сегодня: {today_rates_msg}',
                                   reply_markup=button,
                                   )
     except Exception as er:
@@ -179,11 +200,28 @@ def cancel(update: Update, context):
     return ConversationHandler.END
 
 
+def test_func(update, context):
+    test_func2(update, context)
+    return DATE
+
+
+def test_func2(update, context):
+    chat = update.effective_chat
+    context.bot.send_message(
+        chat_id=chat.id,
+        text=(f'success')
+    )
+    return (TEST, ConversationHandler.END)
+    
+
+
 def main():
     logger.info('bot initiated')
     print('bot initiated')
     updater.dispatcher.add_handler(CommandHandler('update', update_today))
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
+    
+    # converation for getting currecny rates on a specific day
     updater.dispatcher.add_handler(ConversationHandler(
         entry_points=[CommandHandler('rate_on_date', currency_pick)],
         states={
@@ -196,6 +234,22 @@ def main():
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         ))
+    
+    # converation for getting currecny rates on a specific day
+    updater.dispatcher.add_handler(ConversationHandler(
+        entry_points=[CommandHandler('rate_for_period', currency_pick)],
+        states={
+            CURRENCY: [MessageHandler(
+                Filters.regex('^(USD|EUR|CHF|RUB|Все валюты)$'),
+                pick_date)],
+            DATE: [MessageHandler(
+                Filters.regex('^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'),
+                test_func)],
+            TEST: [CommandHandler('end', test_func)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        ))
+    
 
     updater.start_polling()
 
