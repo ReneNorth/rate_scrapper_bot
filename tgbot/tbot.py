@@ -36,7 +36,7 @@ from pathlib import Path
 
 
 load_dotenv()
-tg_token = os.getenv('TG_TOKEN_TEST')
+tg_token = os.getenv('TG_TOKEN')
 
 
 # logger
