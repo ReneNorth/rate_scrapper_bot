@@ -11,6 +11,8 @@ from pathlib import Path
 
 
 # TO DO 
+# разнести работы с ДБ и запрос к БД в разные файлы
+# изменить данные чтобы потом их обрабатывать как даты https://stackoverflow.com/questions/8187288/sql-select-between-dates 
 # - Добавить удаление эксель файлов после обновления базы
 # если такой даты нет, то сделать запрос таких данных,
 
@@ -108,6 +110,9 @@ def create_database():
         rates_to_pands = pd.ExcelFile(excel_file)
         rates_list = []
         rates_list.append(rates_to_pands.parse('Courses'))
+        
+        # где-то тут нужна магия с изменением формата данных
+        
         rates = pd.concat(rates_list)
         rates = rates.set_index('Date')
         rates.to_sql('rates', con, if_exists='replace')
@@ -139,22 +144,103 @@ def update_database():
         con = sqlite3.connect(db)
         logger.info(f'успешное подключение {db} в {path}')
         cur = con.cursor()
+        
+        # задаём файл
         excel_file = Path(__file__).with_name('rates_today.xlsx')
+        # read excel into pandas dataframe
         rates = pd.read_excel(excel_file)
         rates_to_pands = pd.ExcelFile(excel_file)
         rates_list = []
         rates_list.append(rates_to_pands.parse('Courses'))
         rates = pd.concat(rates_list)
         rates = rates.set_index('Date')
+
         rates.to_sql('rates', con, if_exists="append")
         # проверка на то нет ли текущей даты уже в DB
+        db_date_change()
     except Exception as er:
         logger.error(er)
         return Exception
 
 
-def rate_on_date(currency, date_rate):
+def replace_date(date):
+    try:
+        logger.info(f'got date {date}')
+        char = date.string
+        new_date = (f'{char[6]}{char[7]}{char[8]}{char[9]}-'
+                    f'{char[3]}{char[4]}-'
+                    f'{char[0]}{char[1]}')
+        logger.info(f'the date now in {new_date} format')
+        return new_date
+    except Exception as er:
+        logger.error(er)
+
+
+def db_date_change():
+    try:
+        logger.info(f'подключается к базе {db} в {path}')
+        con = sqlite3.connect(db)
+        logger.info(f'успешное подключение {db} в {path}')
+        cur = con.cursor()
+        df = pd.read_sql_query(f'SELECT * from {rates_tname}', con)
+
+        # regex для поиска даты
+        pat = r'^([0-9]{1,2}.[0-9]{1,2}.[0-9]{4})$'
+        # converting dataframe to series
+        ser = df['Date'].squeeze()
+        new_ser = ser.str.replace(pat, replace_date, regex=True)
+
+        # избавляемся от id
+        new_ser = new_ser.drop(columns=['id'])
+
+        # update the initial dataframe with the new date column
+        df.update(new_ser)
+
+        # write updated dataframe to the sqlite DB
+        df.to_sql(rates_tname, con, if_exists='replace', index=False)
+
+    except Exception as er:
+        logger.error(er)
+    
+    
+
+def get_rate(date_rate, currency, caller):
+    """Функция получает на вход дату и вызывающую функцию,
+    подставляет необходимые значения, 
+    затем вызывает соответствующую функцию для запроса к базе.
+    """
     # добавить проверку даты на адекватность
+    begin_date = ''
+    end_date = ''
+    
+    try:
+        if caller == 'rate_on_date':
+            new_date_rate = replace_date(date_rate)
+            
+            begin_date = new_date_rate
+            end_date = new_date_rate
+            
+        if caller == 'rate_for_month':
+            pass
+        
+        if caller == 'rate_year_to_date':
+            pass
+        
+        calc_rate(begin_date, end_date, currency)
+        
+    except Exception as er:
+        logger.error(er)
+    
+    
+    # месяц -> take first and last day of the given month
+    # дату для получения на дату -> take the date
+    # дату для получения YtD -> take the date and get between 01.01 and the given date
+    
+
+
+
+
+def calc_rate(begin_date, end_date, currency):
     try:
         logger.info('establish connection with the DB')
         # странно что connect создаёт файл в момент коннекшена, посмотреть как выкидывать ошибку если бд не существовало
@@ -165,7 +251,7 @@ def rate_on_date(currency, date_rate):
         # list_of_currencies = ', '.join(currency)
         currency_dict = {}
         for item in currency:
-            sql_query = f'SELECT {item} FROM rates WHERE Date="{str(date_rate)}"'
+            sql_query = f'SELECT {item} FROM rates WHERE Date BETWEEN "{begin_date}" AND "{end_date}"'
             logger.info(f'effective query: {sql_query}')
             cur.execute(sql_query)
             res = cur.fetchall()
@@ -180,16 +266,19 @@ def rate_on_date(currency, date_rate):
         logger.error(er)
 
 
-def weighted_avg(begin_month, end_month):
+def weighted_avg(begin_month='01', end_month='01'):
     try:
         con = sqlite3.connect(db, check_same_thread=False)
-        logger.info(f'connection to {db} established in DEBUG')
+        logger.info(f'connection to {db} established in weighted_avg')
         cur = con.cursor()
-        month = '09'
-        data = pd.read_sql(f'SELECT * FROM rates WHERE Date LIKE "__.{month}.2022"', con)
-        # data = pd.read_sql_table('rates', con)
-        print(data)
-    
+        sql_query = f'SELECT * FROM rates WHERE Date BETWEEN "2022-01-15" AND "2022-01-31"'
+        logger.info(f'effective query: {sql_query}')
+        df = pd.read_sql_query(sql_query, con)
+        mean = df['USD'].mean()
+        # rows = (df.shape[0]-1)
+        # avg_weighted = 
+        print(mean)
+        print(df.shape[0]-1)
     except Exception as er:
         logger.error(er)
 
@@ -213,8 +302,9 @@ def debug_func():
 def main():
     try:
         logger.info('started main')
-        # weighted_avg(1, 1)
-        create_database()
+        # db_date_change()
+        # weighted_avg()
+        # create_database()
         # debug_func()
         # logger.info('initiated main')
         # update_database()

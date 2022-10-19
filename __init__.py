@@ -1,5 +1,5 @@
 import os
-from rate_scrapper.rate_ext import rate_on_date
+from rate_scrapper.rate_ext import get_rate
 
 path = os.getcwd()
 print('Current Directory', path)
@@ -8,6 +8,6 @@ print('Current Directory', path)
 print('Parent directory', os.path.abspath(os.path.join(path, os.pardir)))
 
 
-x = rate_on_date()
+x = get_rate()
 print(x)
 

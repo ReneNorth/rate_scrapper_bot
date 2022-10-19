@@ -13,7 +13,7 @@ from logging.handlers import RotatingFileHandler
 parent = os.path.abspath('.')
 sys.path.insert(1, parent)
 
-from rate_scrapper.rate_ext import rate_on_date, update_database
+from rate_scrapper.rate_ext import get_rate, update_database
 from dotenv import load_dotenv
 from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
@@ -26,8 +26,8 @@ from pathlib import Path
 
 
 # TO DO
-# убрать лишние символы 
-# может быть есть перенос по строкам 
+
+# добавить переносы строк 
 # Попробовать переписать кнопки на классы 
 # test
 # Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
@@ -68,62 +68,82 @@ updater = Updater(token=tg_token)
 
 CURRENCY, DATE, TEST = range(3)
 currency = ''
+func_name = ''
 
+
+main_menu_keyboard = [
+        ['/rate_on_date'],
+        ['/rate_for_month'],
+        ['/rate_year_to_date'],
+        ['/update'],
+        ['/start'],
+    ]
+
+currency_menu = [
+        ['USD', 'EUR'],
+        ['CHF', 'RUB'],
+        ['Все валюты'],
+    ]
+
+all_currencies_list = ['USD', 'EUR', 'CHF', 'RUB']
 
 def wake_up(update, context):
     logger.info('User woke up the bot')
+    global func_name
+    func_name = ''
     chat = update.effective_chat
-    button = ReplyKeyboardMarkup([
-        ['/rate_on_date'],
-        ['/rate_for_period'],
-        ['/update'],
-        ['/start'],
-    ], resize_keyboard=True)
-
+    button = ReplyKeyboardMarkup(main_menu_keyboard,
+                                 resize_keyboard=True)
     context.bot.send_message(
         chat_id=chat.id,
         reply_markup=button,
-        text=('Отправляю курсы валют. /rate_on_date вёрнет курсы валют на сегодня. '
-              '/update обновит базу данных сегодняшними данными. Если бот завис, введи /cancel.' )
+        text=('Отправляю курсы валют.'
+              '/rate_on_date вёрнет курсы валют на сегодня. '
+              '/update обновит базу данных сегодняшними данными.'
+              'Если бот завис, введи /cancel.')
     )
 
 
 def currency_pick(update, context):
     chat = update.effective_chat
-    button = ReplyKeyboardMarkup([
-        ['USD', 'EUR'],
-        ['CHF', 'RUB'],
-        ['Все валюты'],
-    ], resize_keyboard=True)
+    button = ReplyKeyboardMarkup(keyboard=currency_menu,
+                                 resize_keyboard=True)
+
+    global func_name
+    func_name = update['message']['text']
 
     context.bot.send_message(
         chat_id=chat.id,
         reply_markup=button,
         text=('Выбери из предложенных валют')
     )
-    logger.info(CURRENCY, '<- вернули')
+    # logger.info(CURRENCY, '<- вернули')
     return CURRENCY
 
 
 def pick_date(update, context):
-    """ Вызвается при попадании одной из валют в чат """
+    """Вызвается при попадании одной из валют в чат."""
     user = update.message.from_user
     button = ReplyKeyboardMarkup([
         ['Сегодня'],
     ], resize_keyboard=True)
     try:
+        # подумать как переписать
         chat = update.effective_chat
         global currency
-        
-        if (update.message['text'] == 'USD'
-            or update.message['text'] == 'EUR'
-            or update.message['text'] == 'CHF'
-            or update.message['text'] == 'RUB'):
-            
+        global func_name
+        logger.info('we are in pick_date function')
+        if (update.message['text'] == 'USD' or update.message['text'] == 'EUR'
+            or update.message['text'] == 'CHF' or update.message['text'] == 'RUB'):
+            msg = update.message['text']
             currency = [update.message['text']]
+            logger.info(f'{msg} ---- {currency}')
         elif update.message['text'] == 'Все валюты':
-            currency = ['USD', 'EUR', 'CHF', 'RUB']
+            currency = all_currencies_list
         logger.info(currency, '<- currency')
+
+        # сюда дописать сообщение в зависимости от того с какой функции был вход
+        
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
@@ -132,37 +152,39 @@ def pick_date(update, context):
         return DATE
     except Exception as er:
         logger.error(f'{er}')
-        return er
 
 
 def find_rate(update, context):
-    # не DRY - эту клавиатуру вынести наружу
-    # или найти способ вызвать начало диалога
-    button = ReplyKeyboardMarkup([
-        ['/rate_on_date'],
-        ['/update'],
-    ], resize_keyboard=True)
-    chat = update.effective_chat
-    if update.message['text'] == 'Сегодня':
-        date_rate = date.today().strftime('%d.%m.%Y')
-    else:
-        date_rate = update.message['text']
+    global currency
     try:
-        logger.info(f'call rate_on_date with args: {currency}, {date_rate}')
-        res = rate_on_date(currency, date_rate)
-        # print(res, '<- it is res')
-        # print(type(res))
-        # json.dumps(res)
-        res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res))
-        
-        # res_msg = f'курсы на {date_rate}:'
-        # # for cur, value in res.items():
-        # #     res_msg.join([f'{cur}', ':', f'{value}'])
+        button = ReplyKeyboardMarkup(keyboard=main_menu_keyboard,
+                                     resize_keyboard=True)
+        chat = update.effective_chat
+        date_rate = ''
+        if func_name == '/rate_on_date':
+            caller = 'rate_on_date'
+            if update.message['text'] == 'Сегодня':
+                date_rate = date.today().strftime('%d.%m.%Y')
+            else:
+                date_rate = update.message['text']
 
-        # for key, value in res.items():
-        #     res_msg += key, value[0]
-            
-            
+        if func_name == '/rate_for_month':
+            caller = 'rate_for_month'
+            if update.message['text'] == 'Текущий месяц':
+                date_rate = date.today().strftime('%m.%Y')
+            else:
+                date_rate = update.message['text']
+
+        if update.message['text'] == '/rate_year_to_date':
+            caller = 'rate_year_to_date'
+            currency = all_currencies_list
+
+        logger.info(f'call find_rate with args:'
+                    f'{date_rate}, {currency}, {caller}')
+        
+        res = get_rate(date_rate, currency, caller)
+        res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res))
+
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
@@ -175,20 +197,23 @@ def find_rate(update, context):
 
 def update_today(update, context):
     try:
-        button = ReplyKeyboardMarkup([
-            ['/rate_on_date'],
-            ], resize_keyboard=True)
+        button = ReplyKeyboardMarkup(main_menu_keyboard,
+                                     resize_keyboard=True)
+
         logger.info('вызываем update_database')
         update_database()
-        logger.info(f'успешное обновление данных')
+        logger.info('успешное обновление данных')
+
         currency = ['USD', 'EUR', 'CHF', 'RUB']
-        today_rates = rate_on_date(currency, date.today().strftime('%d.%m.%Y'))
+        today_rates = get_rate(currency, date.today().strftime('%d.%m.%Y'))
         today_rates_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', today_rates)
-        update.message.reply_text(f'добавили в БД данные на сегодня: {today_rates_msg}',
+        update.message.reply_text(f'добавили в БД данные на сегодня:'
+                                  f'{today_rates_msg}',
                                   reply_markup=button,
                                   )
     except Exception as er:
         logger.error(er)
+
 
 # def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def cancel(update: Update, context):
@@ -200,56 +225,33 @@ def cancel(update: Update, context):
     return ConversationHandler.END
 
 
-def test_func(update, context):
-    test_func2(update, context)
-    return DATE
-
-
-def test_func2(update, context):
-    chat = update.effective_chat
-    context.bot.send_message(
-        chat_id=chat.id,
-        text=(f'success')
-    )
-    return (TEST, ConversationHandler.END)
-    
-
-
 def main():
     logger.info('bot initiated')
     print('bot initiated')
     updater.dispatcher.add_handler(CommandHandler('update', update_today))
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
-    
+    updater.dispatcher.add_handler(CommandHandler('rate_year_to_date', find_rate))
+
     # converation for getting currecny rates on a specific day
     updater.dispatcher.add_handler(ConversationHandler(
-        entry_points=[CommandHandler('rate_on_date', currency_pick)],
+        entry_points=[
+            CommandHandler('rate_on_date', currency_pick),
+            CommandHandler('rate_for_month', currency_pick),
+        ],
         states={
             CURRENCY: [MessageHandler(
-                Filters.regex('^(USD|EUR|CHF|RUB|Все валюты)$'),
+                Filters.regex(
+                    '^(USD|EUR|CHF|RUB|Все валюты)$'
+                ),
                 pick_date)],
             DATE: [MessageHandler(
-                Filters.regex('^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'),
+                Filters.regex(
+                    '^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'
+                ),
                 find_rate)]
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler('cancel', cancel)],
         ))
-    
-    # converation for getting currecny rates on a specific day
-    updater.dispatcher.add_handler(ConversationHandler(
-        entry_points=[CommandHandler('rate_for_period', currency_pick)],
-        states={
-            CURRENCY: [MessageHandler(
-                Filters.regex('^(USD|EUR|CHF|RUB|Все валюты)$'),
-                pick_date)],
-            DATE: [MessageHandler(
-                Filters.regex('^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'),
-                test_func)],
-            TEST: [CommandHandler('end', test_func)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        ))
-    
 
     updater.start_polling()
 
