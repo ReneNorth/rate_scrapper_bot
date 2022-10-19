@@ -2,6 +2,7 @@ from openpyxl import load_workbook
 import pandas as pd
 from logging.handlers import RotatingFileHandler
 from datetime import date
+import calendar
 import requests
 import sqlite3
 import os
@@ -24,14 +25,14 @@ from pathlib import Path
 
 # logger
 logger = logging.getLogger(__name__)
-logging.StreamHandler(stream=sys.stdout)
+# logging.StreamHandler(stream=sys.stdout)
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
 logging.basicConfig(
     format='%(asctime)s'
-           '- %(funcName)s - %(levelname)s - %(message)s - %(name)s',
+           '%(filename)s - %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
     level=logging.INFO,
     filename='main.log',
     filemode='a'
@@ -39,11 +40,11 @@ logging.basicConfig(
 handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
 
-formatter = logging.Formatter(
-    '%(asctime)s - %(funcName)s - %(levelname)s - %(message)s - %(name)s'
-)
+# formatter = logging.Formatter(
+#     '%(filename)s - %(asctime)s - %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
+# )
 
-handler.setFormatter(formatter)
+# handler.setFormatter(formatter)
 
 
 
@@ -166,7 +167,9 @@ def update_database():
 def replace_date(date):
     try:
         logger.info(f'got date {date}')
-        char = date.string
+        if hasattr(date, 'string'):
+            char = date.string
+        char = date
         new_date = (f'{char[6]}{char[7]}{char[8]}{char[9]}-'
                     f'{char[3]}{char[4]}-'
                     f'{char[0]}{char[1]}')
@@ -210,23 +213,26 @@ def get_rate(date_rate, currency, caller):
     затем вызывает соответствующую функцию для запроса к базе.
     """
     # добавить проверку даты на адекватность
-    begin_date = ''
-    end_date = ''
-    
+    logger.info(f'caller is {caller}')
     try:
         if caller == 'rate_on_date':
             new_date_rate = replace_date(date_rate)
-            
             begin_date = new_date_rate
             end_date = new_date_rate
             
         if caller == 'rate_for_month':
-            pass
-        
+            begin_date = f'01.{date_rate}'
+            last_day_month = calendar.monthrange(int(date_rate[3:]),
+                                                 int(date_rate[:2]))[1]
+            end_date = f'{last_day_month}.{date_rate}'
+                
         if caller == 'rate_year_to_date':
-            pass
+            current_year = date.today().strftime('%Y')
+            begin_date = f'01.01.{current_year}'
+            end_date = date.today()
         
-        calc_rate(begin_date, end_date, currency)
+        return calc_rate(begin_date, end_date, currency)
+        
         
     except Exception as er:
         logger.error(er)
@@ -235,9 +241,6 @@ def get_rate(date_rate, currency, caller):
     # месяц -> take first and last day of the given month
     # дату для получения на дату -> take the date
     # дату для получения YtD -> take the date and get between 01.01 and the given date
-    
-
-
 
 
 def calc_rate(begin_date, end_date, currency):
@@ -251,36 +254,39 @@ def calc_rate(begin_date, end_date, currency):
         # list_of_currencies = ', '.join(currency)
         currency_dict = {}
         for item in currency:
-            sql_query = f'SELECT {item} FROM rates WHERE Date BETWEEN "{begin_date}" AND "{end_date}"'
+            sql_query = f'SELECT "{item}" FROM rates WHERE Date BETWEEN "{begin_date}" AND "{end_date}"'
             logger.info(f'effective query: {sql_query}')
-            cur.execute(sql_query)
-            res = cur.fetchall()
-            if res is None:
-                raise Exception
-            currency_dict[item] = res[0]
+            # кладём результат запроса в dataframe
+            df = pd.read_sql_query(sql_query, con)
+            logger.info(df.head(10))
+            # итерационно считаем среднее по каждой валюте и округляем до 2 знаков
+            res = df[f'{item}'].mean().round(decimals=2)
+            # добавляем полученное значение в словарь
+            currency_dict[item] = res
             logger.info(f' результат запроса: {res}')
         if not currency_dict:
             raise Exception
+        # возвращаем полученный словарь
         return currency_dict
     except Exception as er:
         logger.error(er)
 
 
-def weighted_avg(begin_month='01', end_month='01'):
-    try:
-        con = sqlite3.connect(db, check_same_thread=False)
-        logger.info(f'connection to {db} established in weighted_avg')
-        cur = con.cursor()
-        sql_query = f'SELECT * FROM rates WHERE Date BETWEEN "2022-01-15" AND "2022-01-31"'
-        logger.info(f'effective query: {sql_query}')
-        df = pd.read_sql_query(sql_query, con)
-        mean = df['USD'].mean()
-        # rows = (df.shape[0]-1)
-        # avg_weighted = 
-        print(mean)
-        print(df.shape[0]-1)
-    except Exception as er:
-        logger.error(er)
+# def weighted_avg(begin_month='01', end_month='01'):
+#     try:
+#         con = sqlite3.connect(db, check_same_thread=False)
+#         logger.info(f'connection to {db} established in weighted_avg')
+#         cur = con.cursor()
+#         sql_query = f'SELECT * FROM rates WHERE Date BETWEEN "2022-01-15" AND "2022-01-31"'
+#         logger.info(f'effective query: {sql_query}')
+#         df = pd.read_sql_query(sql_query, con)
+#         mean = df['USD'].mean()
+#         # rows = (df.shape[0]-1)
+#         # avg_weighted = 
+#         print(mean)
+#         print(df.shape[0]-1)
+#     except Exception as er:
+#         logger.error(er)
 
 
 def debug_func():

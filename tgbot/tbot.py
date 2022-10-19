@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 # sys.path.append(r'/Users/yury/Dev/projects/rate_scrapper_bot')
 
 # костыль 2 - добавить parent
+# надо от этого избавиться
 parent = os.path.abspath('.')
 sys.path.insert(1, parent)
 
@@ -26,8 +27,9 @@ from pathlib import Path
 
 
 # TO DO
-
-# добавить переносы строк 
+# вынести логгеры отдельно
+# подумать переделать ли caller под import inspect
+# добавить переносы строк в ответе
 # Попробовать переписать кнопки на классы 
 # test
 # Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
@@ -39,14 +41,13 @@ tg_token = os.getenv('TG_TOKEN_TEST')
 
 # logger
 logger = logging.getLogger(__name__)
-logging.StreamHandler(stream=sys.stdout)
+# logging.StreamHandler(stream=sys.stdout)
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
 logging.basicConfig(
-    format='%(asctime)s'
-           '- %(funcName)s - %(levelname)s - %(message)s - %(name)s',
+    format='%(asctime)s - %(filename)s- %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
     level=logging.INFO,
     filename='main.log',
     filemode='a'
@@ -54,11 +55,11 @@ logging.basicConfig(
 handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
 
-formatter = logging.Formatter(
-    '%(asctime)s - %(funcName)s - %(levelname)s - %(message)s - %(name)s'
-)
+# formatter = logging.Formatter(
+#     '%(asctime)s - %(filename)s - %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
+# )
 
-handler.setFormatter(formatter)
+# handler.setFormatter(formatter)
 
 
 #  TG
@@ -86,6 +87,7 @@ currency_menu = [
     ]
 
 all_currencies_list = ['USD', 'EUR', 'CHF', 'RUB']
+
 
 def wake_up(update, context):
     logger.info('User woke up the bot')
@@ -123,31 +125,42 @@ def currency_pick(update, context):
 
 def pick_date(update, context):
     """Вызвается при попадании одной из валют в чат."""
-    user = update.message.from_user
-    button = ReplyKeyboardMarkup([
-        ['Сегодня'],
-    ], resize_keyboard=True)
+    logger.info('we are in the pick_date function')
+    global currency
+    global func_name
+    buttons = []
+    text = []
+
     try:
-        # подумать как переписать
+        if func_name == '/rate_on_date':
+            text = 'Введи дату в формате 01.01.2022'
+            buttons = ['Сегодня']
+        elif func_name == '/rate_for_month':
+            text = 'Введи месяц и год в формате 10.2022'
+            buttons = ['Текущий месяц']
+
+        button = ReplyKeyboardMarkup([
+            buttons,
+        ], resize_keyboard=True)
+
+        logger.info(f'func name - {func_name}, buttons - {buttons}'
+                    f'{text}')
+
         chat = update.effective_chat
-        global currency
-        global func_name
-        logger.info('we are in pick_date function')
-        if (update.message['text'] == 'USD' or update.message['text'] == 'EUR'
-            or update.message['text'] == 'CHF' or update.message['text'] == 'RUB'):
+        if (update.message['text'] == 'USD'
+           or update.message['text'] == 'EUR'
+           or update.message['text'] == 'CHF'
+           or update.message['text'] == 'RUB'):
             msg = update.message['text']
             currency = [update.message['text']]
             logger.info(f'{msg} ---- {currency}')
         elif update.message['text'] == 'Все валюты':
             currency = all_currencies_list
-        logger.info(currency, '<- currency')
 
-        # сюда дописать сообщение в зависимости от того с какой функции был вход
-        
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
-            text=(f'Введи дату в формате 01.01.22 для валют {currency}')
+            text=text
         )
         return DATE
     except Exception as er:
@@ -156,6 +169,7 @@ def pick_date(update, context):
 
 def find_rate(update, context):
     global currency
+    global func_name
     try:
         button = ReplyKeyboardMarkup(keyboard=main_menu_keyboard,
                                      resize_keyboard=True)
@@ -176,6 +190,7 @@ def find_rate(update, context):
                 date_rate = update.message['text']
 
         if update.message['text'] == '/rate_year_to_date':
+            func_name = '/rate_year_to_date'
             caller = 'rate_year_to_date'
             currency = all_currencies_list
 
@@ -183,6 +198,7 @@ def find_rate(update, context):
                     f'{date_rate}, {currency}, {caller}')
         
         res = get_rate(date_rate, currency, caller)
+        # очищаем ответ от всех символов, кроме указанных в первом аргументе re.sub
         res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res))
 
         context.bot.send_message(
@@ -246,7 +262,7 @@ def main():
                 pick_date)],
             DATE: [MessageHandler(
                 Filters.regex(
-                    '^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня)$'
+                    '^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня|Текущий месяц|[0-9]{1,2}\\.[0-9]{4})$'
                 ),
                 find_rate)]
         },
