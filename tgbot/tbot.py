@@ -198,13 +198,22 @@ def find_rate(update, context):
                     f'{date_rate}, {currency}, {caller}')
         
         res = get_rate(date_rate, currency, caller)
+        print(res)
         # очищаем ответ от всех символов, кроме указанных в первом аргументе re.sub
-        res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res))
+        res_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', json.dumps(res[0]))
+        date_start = res[1]
+        date_end = res[2]
+        
+        if date_start == date_end:
+            text = f'Курсы на {res[1]}\r\n \r\n{res_msg}'
+        else:
+            text = f'Курсы с {res[1]} по {res[2]}\r\n \r\n{res_msg}'
 
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
-            text=(f'на {date_rate} курсы: {res_msg}')
+            # text=f'{res_msg}'
+            text=text
         )
         return ConversationHandler.END
     except Exception as er:
@@ -221,12 +230,11 @@ def update_today(update, context):
         logger.info('успешное обновление данных')
 
         currency = ['USD', 'EUR', 'CHF', 'RUB']
-        today_rates = get_rate(currency, date.today().strftime('%d.%m.%Y'))
-        today_rates_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', today_rates)
-        update.message.reply_text(f'добавили в БД данные на сегодня:'
-                                  f'{today_rates_msg}',
-                                  reply_markup=button,
-                                  )
+
+        # today_rates_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', today_rates)
+        update.message.reply_text(f'добавили в БД данные на сегодня:',
+                                #   f'{today_rates_msg}',
+                                  reply_markup=button,)
     except Exception as er:
         logger.error(er)
 

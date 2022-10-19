@@ -102,17 +102,11 @@ def create_database():
         request_all_rates()
         excel_file = Path(__file__).with_name('rates_from_010122.xlsx')
         rates = pd.read_excel(excel_file)
-        # SQLITE https://docs.python.org/3/library/sqlite3.html
-        # First, we need to create a new database and open a database connection to allow sqlite3 to work with it.
         con = sqlite3.connect(db)
-        # In order to execute SQL statements and fetch results from SQL queries, we will need to use a database cursor
         cur = con.cursor()
-        # https://www.dataquest.io/blog/excel-and-pandas/
         rates_to_pands = pd.ExcelFile(excel_file)
         rates_list = []
         rates_list.append(rates_to_pands.parse('Courses'))
-        
-        # где-то тут нужна магия с изменением формата данных
         
         rates = pd.concat(rates_list)
         rates = rates.set_index('Date')
@@ -122,8 +116,12 @@ def create_database():
         logger.error(f'{er}')
     # or replace  https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_sql.html
 
+
 def request_today_rates():
     # тянем сегодняшнюю дату и добаввляем её в request
+    # объединить request today с requst all 
+    
+    # добавить проверку на дубликаты
     try:
         begin_date = date.today()
         end_date = date.today()
@@ -132,13 +130,15 @@ def request_today_rates():
         r = requests.get(url, headers=headers)
         logger.info((f'ОТПРАВИЛИ запрос с url {url} и headers {headers}'))
         with open(os.path.join(path, 'rates_today.xlsx'), 'wb') as f:
-            logger.info((f'Сохраняем файл'))
+            logger.info(('Сохраняем файл'))
             f.write(r.content)
     except Exception as er:
         logger.error(er)
 
 
 def update_database():
+    # улучшить логику - например,
+    # проверить недостающие даты с начала периода
     try:
         request_today_rates()
         logger.info(f'подключается к базе {db} в {path}')
@@ -169,7 +169,8 @@ def replace_date(date):
         logger.info(f'got date {date}')
         if hasattr(date, 'string'):
             char = date.string
-        char = date
+        else:
+            char = date
         new_date = (f'{char[6]}{char[7]}{char[8]}{char[9]}-'
                     f'{char[3]}{char[4]}-'
                     f'{char[0]}{char[1]}')
@@ -204,12 +205,11 @@ def db_date_change():
 
     except Exception as er:
         logger.error(er)
-    
-    
 
-def get_rate(date_rate, currency, caller):
+
+def get_rate(date_rate, currency, caller=''):
     """Функция получает на вход дату и вызывающую функцию,
-    подставляет необходимые значения, 
+    подставляет необходимые значения,
     затем вызывает соответствующую функцию для запроса к базе.
     """
     # добавить проверку даты на адекватность
@@ -221,26 +221,20 @@ def get_rate(date_rate, currency, caller):
             end_date = new_date_rate
             
         if caller == 'rate_for_month':
-            begin_date = f'01.{date_rate}'
+            begin_date = f'{date_rate[3:]}-{date_rate[:2]}-01'
             last_day_month = calendar.monthrange(int(date_rate[3:]),
                                                  int(date_rate[:2]))[1]
-            end_date = f'{last_day_month}.{date_rate}'
+            end_date = f'{date_rate[3:]}-{date_rate[:2]}-{last_day_month}'
+            logger.info(f' begin daate {begin_date}, end date {end_date}')
                 
         if caller == 'rate_year_to_date':
             current_year = date.today().strftime('%Y')
-            begin_date = f'01.01.{current_year}'
+            begin_date = f'{current_year}-01-01'
             end_date = date.today()
-        
+
         return calc_rate(begin_date, end_date, currency)
-        
-        
     except Exception as er:
         logger.error(er)
-    
-    
-    # месяц -> take first and last day of the given month
-    # дату для получения на дату -> take the date
-    # дату для получения YtD -> take the date and get between 01.01 and the given date
 
 
 def calc_rate(begin_date, end_date, currency):
@@ -267,26 +261,9 @@ def calc_rate(begin_date, end_date, currency):
         if not currency_dict:
             raise Exception
         # возвращаем полученный словарь
-        return currency_dict
+        return currency_dict, begin_date, end_date
     except Exception as er:
         logger.error(er)
-
-
-# def weighted_avg(begin_month='01', end_month='01'):
-#     try:
-#         con = sqlite3.connect(db, check_same_thread=False)
-#         logger.info(f'connection to {db} established in weighted_avg')
-#         cur = con.cursor()
-#         sql_query = f'SELECT * FROM rates WHERE Date BETWEEN "2022-01-15" AND "2022-01-31"'
-#         logger.info(f'effective query: {sql_query}')
-#         df = pd.read_sql_query(sql_query, con)
-#         mean = df['USD'].mean()
-#         # rows = (df.shape[0]-1)
-#         # avg_weighted = 
-#         print(mean)
-#         print(df.shape[0]-1)
-#     except Exception as er:
-#         logger.error(er)
 
 
 def debug_func():
