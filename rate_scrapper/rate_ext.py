@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 # TO DO 
+# Перепистаь на Raise exception
 # разнести работы с ДБ и запрос к БД в разные файлы
 # изменить данные чтобы потом их обрабатывать как даты https://stackoverflow.com/questions/8187288/sql-select-between-dates 
 # - Добавить удаление эксель файлов после обновления базы
@@ -54,8 +55,10 @@ test_link = 'https://nationalbank.kz/ru/exchangerates/ezhednevnye-oficialnye-ryn
 
 
 DEBUG = False
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'}
-tg_token = os.getenv('TG_TOKEN')
+headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+           'AppleWebKit/537.36 (KHTML, like Gecko) '
+           'Chrome/105.0.0.0 Safari/537.36'}
+
 
 # current_list = []
 id_rates = [5, 6, 16, 23]
@@ -133,7 +136,7 @@ def request_today_rates():
             logger.info(('Сохраняем файл'))
             f.write(r.content)
     except Exception as er:
-        logger.error(er)
+        raise Exception(er)
 
 
 def update_database():
@@ -160,8 +163,7 @@ def update_database():
         # проверка на то нет ли текущей даты уже в DB
         db_date_change()
     except Exception as er:
-        logger.error(er)
-        return Exception
+        raise Exception(er)
 
 
 def replace_date(date):
@@ -177,7 +179,7 @@ def replace_date(date):
         logger.info(f'the date now in {new_date} format')
         return new_date
     except Exception as er:
-        logger.error(er)
+        raise Exception(er)
 
 
 def db_date_change():
@@ -204,7 +206,7 @@ def db_date_change():
         df.to_sql(rates_tname, con, if_exists='replace', index=False)
 
     except Exception as er:
-        logger.error(er)
+        raise Exception(er)
 
 
 def get_rate(date_rate, currency, caller=''):
@@ -234,7 +236,7 @@ def get_rate(date_rate, currency, caller=''):
 
         return calc_rate(begin_date, end_date, currency)
     except Exception as er:
-        logger.error(er)
+        raise Exception(er)
 
 
 def calc_rate(begin_date, end_date, currency):
@@ -263,7 +265,7 @@ def calc_rate(begin_date, end_date, currency):
         # возвращаем полученный словарь
         return currency_dict, begin_date, end_date
     except Exception as er:
-        logger.error(er)
+        raise Exception(er)
 
 
 def debug_func():
@@ -279,7 +281,7 @@ def debug_func():
         print(res)
         print(len(res))
     except Exception as er:
-        logger.error({er})
+        raise Exception(er)
 
 
 def main():
@@ -287,7 +289,7 @@ def main():
         logger.info('started main')
         # db_date_change()
         # weighted_avg()
-        # create_database()
+        create_database()
         # debug_func()
         # logger.info('initiated main')
         # update_database()
