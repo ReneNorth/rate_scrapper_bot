@@ -5,7 +5,7 @@ import sys
 import re
 from datetime import date
 from logging.handlers import RotatingFileHandler
-
+from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 
 
 # костыль 1 - добавить в системные пути абсолютный путь
@@ -16,13 +16,17 @@ from logging.handlers import RotatingFileHandler
 parent = os.path.abspath('.')
 sys.path.insert(1, parent)
 
-
 from rate_scrapper.rate_ext import get_rate, update_database
 from dotenv import load_dotenv
 from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (Updater, Filters, MessageHandler,
                           CommandHandler, ConversationHandler,
-                          ContextTypes)
+                          ContextTypes, CallbackQueryHandler)
+
+
+import telegramcalendar
+
+
 
 
 load_dotenv()
@@ -57,7 +61,7 @@ MAIN_MENU_KEYBOARD: list = [
         ['/rate_on_date'],
         ['/rate_for_month'],
         ['/rate_year_to_date'],
-        ['/update'],
+        ['/update', '/calendar'],
         ['/start'],
     ]
 
@@ -81,8 +85,37 @@ def wake_up(update: Update, context: ContextTypes):
     )
 
 
+def calendar_handler(update: Update, context: ContextTypes):
+    # print(type(update))
+    # print(update)
+    # print(dir(update))
+    # print('--------')
+    # print(type(context))
+    # print(context)
+    # print(dir(context))
+    update.message.reply_text("Please select a date: ",
+                        reply_markup=telegramcalendar.create_calendar())
+
+
+def inline_handler(update: Update, context: ContextTypes):
+    # print(type(update))
+    # print(update)
+    # print(dir(update))
+    # print('--------')
+    # print(type(context))
+    # print(context)
+    # print(dir(context))
+    print(update.callback_query.from_user.id)
+    selected, date = telegramcalendar.process_calendar_selection(update, context)
+    if selected:
+        bot.send_message(chat_id=update.callback_query.from_user.id,
+                        text='%s' % (date.strftime('%d.%m.%Y')),    
+                        reply_markup=ReplyKeyboardRemove())
+
+
+
 def pick_date(update: Update, context: ContextTypes):
-    """Вызвается при попадании одной из валют в чат."""
+    """ """
     logger.info('we are in the pick_date function')
     global currency
     global func_name
@@ -92,25 +125,41 @@ def pick_date(update: Update, context: ContextTypes):
 
     try:
         if func_name == '/rate_on_date':
+            
             text = 'Введи дату в формате 01.01.2022'
             buttons = ['Сегодня']
         elif func_name == '/rate_for_month':
             text = 'Введи месяц и год в формате 10.2022'
             buttons = ['Текущий месяц']
 
-        button = ReplyKeyboardMarkup([
-            buttons,
-        ], resize_keyboard=True)
+        # button = ReplyKeyboardMarkup([
+        #     buttons,
+        # ], resize_keyboard=True)
 
         logger.info(f'func name - {func_name}, buttons - {buttons}'
                     f'{text}')
+        
+        
+        
+        # update.message.reply_text("Please select a date: ",
+        #                 reply_markup=telegramcalendar.create_calendar())
 
         chat = update.effective_chat
+        
         context.bot.send_message(
             chat_id=chat.id,
-            reply_markup=button,
+            reply_markup=telegramcalendar.create_calendar(),
             text=text
         )
+        
+        
+        # prev vers 
+        
+        # context.bot.send_message(
+        #     chat_id=chat.id,
+        #     reply_markup=button,
+        #     text=text
+        # )
         return DATE
     except Exception as er:
         logger.error(f'{er}')
@@ -161,7 +210,6 @@ def find_rate(update: Update, context: ContextTypes):
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
-            # text=f'{res_msg}'
             text=text
         )
         return ConversationHandler.END
@@ -199,8 +247,15 @@ def cancel(update: Update, context):
 def main():
     logger.info('bot initiated')
     print('bot initiated')
-    updater.dispatcher.add_handler(CommandHandler('update', update_today))
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
+    
+    updater.dispatcher.add_handler(CommandHandler("calendar", calendar_handler))
+    updater.dispatcher.add_handler(CallbackQueryHandler(inline_handler))
+        
+    # updater.dispatcher.add_handler(CommandHandler('calendar_test', calendar_test))
+    
+    updater.dispatcher.add_handler(CommandHandler('update', update_today))
+    
     updater.dispatcher.add_handler(CommandHandler('rate_year_to_date',
                                                   find_rate))
 
