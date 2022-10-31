@@ -133,6 +133,8 @@ response_part
 response_web_table.html
 response.html
 
+# Legacy
+.legacy.py
 
 # Ignore All (xlsx) files
 *.xlsx

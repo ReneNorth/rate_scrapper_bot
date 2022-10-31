@@ -1,4 +1,3 @@
-import requests
 import logging
 import json
 import os
@@ -6,6 +5,9 @@ import sys
 import re
 from datetime import date
 from logging.handlers import RotatingFileHandler
+
+
+
 # костыль 1 - добавить в системные пути абсолютный путь
 # sys.path.append(r'/Users/yury/Dev/projects/rate_scrapper_bot')
 
@@ -14,52 +16,31 @@ from logging.handlers import RotatingFileHandler
 parent = os.path.abspath('.')
 sys.path.insert(1, parent)
 
+
 from rate_scrapper.rate_ext import get_rate, update_database
 from dotenv import load_dotenv
 from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.ext import (
-    Updater,
-    Filters,
-    MessageHandler,
-    CommandHandler,
-    ConversationHandler)
-from pathlib import Path
-
-
-# TO DO
-# вынести логгеры отдельно
-# подумать переделать ли caller под import inspect
-# добавить переносы строк в ответе
-# Попробовать переписать кнопки на классы 
-# test
-# Limit who can use the bot https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-requested-design-patterns#how-do-i-limit-who-can-use-my-bot
+from telegram.ext import (Updater, Filters, MessageHandler,
+                          CommandHandler, ConversationHandler,
+                          ContextTypes)
 
 
 load_dotenv()
 tg_token = os.getenv('TG_TOKEN_TEST')
 
-
-# logger
 logger = logging.getLogger(__name__)
-# logging.StreamHandler(stream=sys.stdout)
-
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
 logging.basicConfig(
-    format='%(asctime)s - %(filename)s- %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
+    format=('%(asctime)s - %(filename)s- %(funcName)s - %(args)s - %(lineno)d '
+            '- %(levelname)s - %(message)s - %(name)s'),
     level=logging.INFO,
     filename='main.log',
     filemode='a'
 )
 handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
-
-# formatter = logging.Formatter(
-#     '%(asctime)s - %(filename)s - %(funcName)s - %(args)s - %(lineno)d - %(levelname)s - %(message)s - %(name)s',
-# )
-
-# handler.setFormatter(formatter)
 
 
 #  TG
@@ -72,7 +53,7 @@ currency = ''
 func_name = ''
 
 
-main_menu_keyboard = [
+MAIN_MENU_KEYBOARD: list = [
         ['/rate_on_date'],
         ['/rate_for_month'],
         ['/rate_year_to_date'],
@@ -80,21 +61,15 @@ main_menu_keyboard = [
         ['/start'],
     ]
 
-currency_menu = [
-        ['USD', 'EUR'],
-        ['CHF', 'RUB'],
-        ['Все валюты'],
-    ]
-
-all_currencies_list = ['USD', 'EUR', 'CHF', 'RUB']
+ALL_CURRENCIES_LIST: list = ['USD', 'EUR', 'CHF', 'RUB']
 
 
-def wake_up(update, context):
+def wake_up(update: Update, context: ContextTypes):
     logger.info('User woke up the bot')
     global func_name
     func_name = ''
     chat = update.effective_chat
-    button = ReplyKeyboardMarkup(main_menu_keyboard,
+    button = ReplyKeyboardMarkup(MAIN_MENU_KEYBOARD,
                                  resize_keyboard=True)
     context.bot.send_message(
         chat_id=chat.id,
@@ -106,30 +81,14 @@ def wake_up(update, context):
     )
 
 
-def currency_pick(update, context):
-    chat = update.effective_chat
-    button = ReplyKeyboardMarkup(keyboard=currency_menu,
-                                 resize_keyboard=True)
-
-    global func_name
-    func_name = update['message']['text']
-
-    context.bot.send_message(
-        chat_id=chat.id,
-        reply_markup=button,
-        text=('Выбери из предложенных валют')
-    )
-    # logger.info(CURRENCY, '<- вернули')
-    return CURRENCY
-
-
-def pick_date(update, context):
+def pick_date(update: Update, context: ContextTypes):
     """Вызвается при попадании одной из валют в чат."""
     logger.info('we are in the pick_date function')
     global currency
     global func_name
-    buttons = []
-    text = []
+    buttons: list = []
+    text: list = []
+    func_name = update['message']['text']
 
     try:
         if func_name == '/rate_on_date':
@@ -147,16 +106,6 @@ def pick_date(update, context):
                     f'{text}')
 
         chat = update.effective_chat
-        if (update.message['text'] == 'USD'
-           or update.message['text'] == 'EUR'
-           or update.message['text'] == 'CHF'
-           or update.message['text'] == 'RUB'):
-            msg = update.message['text']
-            currency = [update.message['text']]
-            logger.info(f'{msg} ---- {currency}')
-        elif update.message['text'] == 'Все валюты':
-            currency = all_currencies_list
-
         context.bot.send_message(
             chat_id=chat.id,
             reply_markup=button,
@@ -167,21 +116,22 @@ def pick_date(update, context):
         logger.error(f'{er}')
 
 
-def find_rate(update, context):
-    global currency
+def find_rate(update: Update, context: ContextTypes):
+    currency = ALL_CURRENCIES_LIST
     global func_name
     try:
-        button = ReplyKeyboardMarkup(keyboard=main_menu_keyboard,
+        button = ReplyKeyboardMarkup(keyboard=MAIN_MENU_KEYBOARD,
                                      resize_keyboard=True)
         chat = update.effective_chat
         date_rate = ''
+        
         if func_name == '/rate_on_date':
             caller = 'rate_on_date'
             if update.message['text'] == 'Сегодня':
                 date_rate = date.today().strftime('%d.%m.%Y')
             else:
                 date_rate = update.message['text']
-
+        
         if func_name == '/rate_for_month':
             caller = 'rate_for_month'
             if update.message['text'] == 'Текущий месяц':
@@ -192,7 +142,6 @@ def find_rate(update, context):
         if update.message['text'] == '/rate_year_to_date':
             func_name = '/rate_year_to_date'
             caller = 'rate_year_to_date'
-            currency = all_currencies_list
 
         logger.info(f'call find_rate with args:'
                     f'{date_rate}, {currency}, {caller}')
@@ -220,9 +169,9 @@ def find_rate(update, context):
         logger.error(er)
 
 
-def update_today(update, context):
+def update_today(update: Update, context: ContextTypes):
     try:
-        button = ReplyKeyboardMarkup(main_menu_keyboard,
+        button = ReplyKeyboardMarkup(MAIN_MENU_KEYBOARD,
                                      resize_keyboard=True)
 
         logger.info('вызываем update_database')
@@ -231,10 +180,8 @@ def update_today(update, context):
 
         currency = ['USD', 'EUR', 'CHF', 'RUB']
 
-        # today_rates_msg = re.sub('[^A-Za-z0-9|А-Яа-я|.|:| ]+', '', today_rates)
-        update.message.reply_text(f'добавили в БД данные на сегодня:',
-                                #   f'{today_rates_msg}',
-                                  reply_markup=button,)
+        update.message.reply_text('добавили в БД данные на сегодня',
+                                  reply_markup=button)
     except Exception as er:
         logger.error(er)
 
@@ -254,20 +201,16 @@ def main():
     print('bot initiated')
     updater.dispatcher.add_handler(CommandHandler('update', update_today))
     updater.dispatcher.add_handler(CommandHandler('start', wake_up))
-    updater.dispatcher.add_handler(CommandHandler('rate_year_to_date', find_rate))
+    updater.dispatcher.add_handler(CommandHandler('rate_year_to_date',
+                                                  find_rate))
 
-    # converation for getting currecny rates on a specific day
+
     updater.dispatcher.add_handler(ConversationHandler(
         entry_points=[
-            CommandHandler('rate_on_date', currency_pick),
-            CommandHandler('rate_for_month', currency_pick),
+            CommandHandler('rate_on_date', pick_date),
+            CommandHandler('rate_for_month', pick_date),
         ],
         states={
-            CURRENCY: [MessageHandler(
-                Filters.regex(
-                    '^(USD|EUR|CHF|RUB|Все валюты)$'
-                ),
-                pick_date)],
             DATE: [MessageHandler(
                 Filters.regex(
                     '^([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{4}|Сегодня|Текущий месяц|[0-9]{1,2}\\.[0-9]{4})$'

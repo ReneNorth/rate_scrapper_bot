@@ -11,17 +11,6 @@ import logging
 from pathlib import Path
 
 
-# TO DO 
-# разнести работы с ДБ и запрос к БД в разные файлы
-# изменить данные чтобы потом их обрабатывать как даты https://stackoverflow.com/questions/8187288/sql-select-between-dates 
-# - Добавить удаление эксель файлов после обновления базы
-# если такой даты нет, то сделать запрос таких данных,
-
-# - добавить в БД и вернуть ответ
-
-# - Вынести подключение к базе в отдельную функцию, потому что эту чать
-# тоже надо будет завернуть в try/except
-
 
 # logger
 logger = logging.getLogger(__name__)
@@ -207,7 +196,7 @@ def db_date_change():
         logger.error(er)
 
 
-def get_rate(date_rate, currency, caller=''):
+def get_rate(date_rate, currency: list, caller: str=''):
     """Функция получает на вход дату и вызывающую функцию,
     подставляет необходимые значения,
     затем вызывает соответствующую функцию для запроса к базе.
@@ -237,6 +226,8 @@ def get_rate(date_rate, currency, caller=''):
         logger.error(er)
 
 
+# сделать тут корректные аннотации / формат проверки данных 
+# может быть regex
 def calc_rate(begin_date, end_date, currency):
     try:
         logger.info('establish connection with the DB')
@@ -285,9 +276,10 @@ def debug_func():
 def main():
     try:
         logger.info('started main')
-        # db_date_change()
+        
         # weighted_avg()
-        # create_database()
+        create_database()
+        db_date_change()
         # debug_func()
         # logger.info('initiated main')
         # update_database()
