@@ -8,7 +8,7 @@ Base methods for calendar keyboard creation and processing.
 """
 
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup,ReplyKeyboardRemove
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 import datetime
 import calendar
 from logging.handlers import RotatingFileHandler
@@ -29,7 +29,25 @@ handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
 logger.addHandler(handler)
 
 
-def create_callback_data(action,year,month,day):
+month_keyboard: list = [
+                    [InlineKeyboardButton('2022', callback_data='2022')],
+                    [InlineKeyboardButton('Январь', callback_data='01.2022'),
+                     InlineKeyboardButton('Февраль', callback_data='02.2022'),
+                     InlineKeyboardButton('Март', callback_data='03.2022')],
+                    [InlineKeyboardButton('Апрель', callback_data='04.2022'),
+                     InlineKeyboardButton('Май', callback_data='05.2022'),
+                     InlineKeyboardButton('Июнь', callback_data='06.2022')],
+                    [InlineKeyboardButton('Июль', callback_data='07.2022'),
+                     InlineKeyboardButton('Август', callback_data='08.2022'),
+                     InlineKeyboardButton('Сентябрь', callback_data='01.2022')],
+                    [InlineKeyboardButton('Октябрь', callback_data='10.2022'),
+                     InlineKeyboardButton('Ноябрь', callback_data='11.2022'),
+                     InlineKeyboardButton('Декабрь', callback_data='12.2022')],
+                ]
+
+
+
+def create_callback_data(action, year, month, day):
     """ Create the callback data associated to each button"""
     return ";".join([action,str(year),str(month),str(day)])
 
@@ -67,31 +85,19 @@ def create_calendar(year=None,month=None):
             if(day==0):
                 row.append(InlineKeyboardButton(" ",callback_data=data_ignore))
             else:
-                row.append(InlineKeyboardButton(str(day),callback_data=create_callback_data("DAY",year,month,day)))
+                row.append(InlineKeyboardButton(str(day),callback_data=create_callback_data("DAY", year, month, day)))
         keyboard.append(row)
     #Last row - Buttons
     row=[]
-    row.append(InlineKeyboardButton("<",callback_data=create_callback_data("PREV-MONTH",year,month,day)))
-    row.append(InlineKeyboardButton("Сегодня",callback_data=data_ignore))
-    row.append(InlineKeyboardButton(">",callback_data=create_callback_data("NEXT-MONTH",year,month,day)))
+    row.append(InlineKeyboardButton("<", callback_data=create_callback_data("PREV-MONTH", year, month, day)))
+    row.append(InlineKeyboardButton("Сегодня", callback_data=create_callback_data('TODAY', year, month, day)))
+    row.append(InlineKeyboardButton(">", callback_data=create_callback_data("NEXT-MONTH", year, month, day)))
     keyboard.append(row)
 
     return InlineKeyboardMarkup(keyboard)
 
 
 def process_calendar_selection(update, context):
-    # print(type(update))
-    # print(update)
-    # print(dir(update))
-    # print('--------')
-    # print(type(context))
-    # print(context)
-    # print(dir(context))
-    # print('--------')
-    # print(type(context.bot))
-    # print(context.bot)
-    # print(dir(context.bot))
-    
     """
     Process the callback_query. This method generates a new calendar if forward or
     backward is pressed. This method should be called inside a CallbackQueryHandler.
@@ -102,30 +108,35 @@ def process_calendar_selection(update, context):
     """
     ret_data = (False,None)
     query = update.callback_query
-    (action,year,month,day) = separate_callback_data(query.data)
+    (action, year, month, day) = separate_callback_data(query.data)
     curr = datetime.datetime(int(year), int(month), 1)
     if action == "IGNORE":
-        context.bot.answer_callback_query(callback_query_id= query.id)
+        context.bot.answer_callback_query(callback_query_id=query.id)
+    elif action == "TODAY":
+        ret_data = True, datetime.datetime(year=datetime.datetime.now().year,
+                                           month=datetime.datetime.now().month,
+                                           day=datetime.datetime.now().day)
+        
     elif action == "DAY":
-        context.bot.edit_message_text(text=query.message.text,
-            chat_id=query.message.chat_id,
-            message_id=query.message.message_id
-            )
-        ret_data = True,datetime.datetime(int(year),int(month),int(day))
+        # context.bot.edit_message_text(text=query.message.text,
+        #     chat_id=query.message.chat_id,
+        #     message_id=query.message.message_id
+            # )
+        ret_data = True, datetime.datetime(int(year), int(month), int(day))
     elif action == "PREV-MONTH":
         pre = curr - datetime.timedelta(days=1)
         context.bot.edit_message_text(text=query.message.text,
             chat_id=query.message.chat_id,
             message_id=query.message.message_id,
-            reply_markup=create_calendar(int(pre.year),int(pre.month)))
+            reply_markup=create_calendar(int(pre.year), int(pre.month)))
     elif action == "NEXT-MONTH":
         ne = curr + datetime.timedelta(days=31)
         context.bot.edit_message_text(text=query.message.text,
             chat_id=query.message.chat_id,
             message_id=query.message.message_id,
-            reply_markup=create_calendar(int(ne.year),int(ne.month)))
+            reply_markup=create_calendar(int(ne.year), int(ne.month)))
     else:
-        context.bot.answer_callback_query(callback_query_id= query.id,text="Something went wrong!")
+        context.bot.answer_callback_query(callback_query_id=query.id, text="Something went wrong!")
         # UNKNOWN
     logger.info(f'process_calendar_selection returns {ret_data}')
     return ret_data
