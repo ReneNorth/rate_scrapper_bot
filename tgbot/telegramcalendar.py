@@ -7,10 +7,27 @@
 Base methods for calendar keyboard creation and processing.
 """
 
-
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup,ReplyKeyboardRemove
 import datetime
 import calendar
+from logging.handlers import RotatingFileHandler
+
+
+logger = logging.getLogger(__name__)
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+logging.basicConfig(
+    format=('%(asctime)s - %(filename)s- %(funcName)s - %(args)s - %(lineno)d '
+            '- %(levelname)s - %(message)s - %(name)s'),
+    level=logging.INFO,
+    filename='main.log',
+    filemode='a'
+)
+handler = RotatingFileHandler('main.log', maxBytes=50000000, backupCount=5)
+logger.addHandler(handler)
+
 
 def create_callback_data(action,year,month,day):
     """ Create the callback data associated to each button"""
@@ -63,17 +80,17 @@ def create_calendar(year=None,month=None):
 
 
 def process_calendar_selection(update, context):
-    print(type(update))
-    print(update)
-    print(dir(update))
-    print('--------')
-    print(type(context))
-    print(context)
-    print(dir(context))
-    print('--------')
-    print(type(context.bot))
-    print(context.bot)
-    print(dir(context.bot))
+    # print(type(update))
+    # print(update)
+    # print(dir(update))
+    # print('--------')
+    # print(type(context))
+    # print(context)
+    # print(dir(context))
+    # print('--------')
+    # print(type(context.bot))
+    # print(context.bot)
+    # print(dir(context.bot))
     
     """
     Process the callback_query. This method generates a new calendar if forward or
@@ -110,4 +127,5 @@ def process_calendar_selection(update, context):
     else:
         context.bot.answer_callback_query(callback_query_id= query.id,text="Something went wrong!")
         # UNKNOWN
+    logger.info(f'process_calendar_selection returns {ret_data}')
     return ret_data

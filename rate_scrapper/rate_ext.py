@@ -204,6 +204,11 @@ def get_rate(date_rate, currency: list, caller: str=''):
     # добавить проверку даты на адекватность
     logger.info(f'caller is {caller}')
     try:
+        if caller == 'rate_on_date_calend':
+            new_date_rate = date_rate.strftime('%Y-%m-%d')
+            begin_date = new_date_rate
+            end_date = new_date_rate
+            
         if caller == 'rate_on_date':
             new_date_rate = replace_date(date_rate)
             begin_date = new_date_rate
@@ -220,7 +225,8 @@ def get_rate(date_rate, currency: list, caller: str=''):
             current_year = date.today().strftime('%Y')
             begin_date = f'{current_year}-01-01'
             end_date = date.today()
-
+        
+        logger.info(f'args: {caller}, {begin_date}, {end_date}')
         return calc_rate(begin_date, end_date, currency)
     except Exception as er:
         logger.error(er)
@@ -243,6 +249,9 @@ def calc_rate(begin_date, end_date, currency):
             logger.info(f'effective query: {sql_query}')
             # кладём результат запроса в dataframe
             df = pd.read_sql_query(sql_query, con)
+            logger.info(f'{len(df)} - длина полученного массива')
+            if len(df) == 0:
+                raise Exception
             logger.info(df.head(10))
             # итерационно считаем среднее по каждой валюте и округляем до 2 знаков
             res = df[f'{item}'].mean().round(decimals=2)
