@@ -96,3 +96,33 @@
 #         return ConversationHandler.END
 #     except Exception as er:
 #         logger.error(er)
+
+
+# def pick_date(update: Update, context: ContextTypes):
+#     """ """
+#     logger.info('we are in the pick_date function')
+#     global currency
+#     global func_name
+#     buttons: list = []
+#     text: list = []
+#     func_name = update['message']['text']
+
+#     try:
+#         if func_name == '/rate_on_date':
+            
+#             text = 'Введи дату в формате 01.01.2022'
+#             buttons = ['Сегодня']
+#         elif func_name == '/rate_for_month':
+#             text = 'Введи месяц и год в формате 10.2022'
+#             buttons = ['Текущий месяц']
+
+#         logger.info(f'func name - {func_name}, buttons - {buttons}'
+#                     f'{text}')
+#         context.bot.send_message(
+#             chat_id=update.effective_chat.id,
+#             text=text,
+#             reply_markup=telegramcalendar.create_calendar(),
+#         )
+#         return DATE
+#     except Exception as er:
+#         logger.error(f'{er}')

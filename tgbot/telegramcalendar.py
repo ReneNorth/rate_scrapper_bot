@@ -39,7 +39,7 @@ month_keyboard: list = [
                      InlineKeyboardButton('Июнь', callback_data='06.2022')],
                     [InlineKeyboardButton('Июль', callback_data='07.2022'),
                      InlineKeyboardButton('Август', callback_data='08.2022'),
-                     InlineKeyboardButton('Сентябрь', callback_data='01.2022')],
+                     InlineKeyboardButton('Сентябрь', callback_data='09.2022')],
                     [InlineKeyboardButton('Октябрь', callback_data='10.2022'),
                      InlineKeyboardButton('Ноябрь', callback_data='11.2022'),
                      InlineKeyboardButton('Декабрь', callback_data='12.2022')],
@@ -49,14 +49,14 @@ month_keyboard: list = [
 
 def create_callback_data(action, year, month, day):
     """ Create the callback data associated to each button"""
-    return ";".join([action,str(year),str(month),str(day)])
+    return ";".join([action, str(year), str(month), str(day)])
 
 def separate_callback_data(data):
     """ Separate the callback data"""
     return data.split(";")
 
 
-def create_calendar(year=None,month=None):
+def create_calendar(year=None, month=None):
     """
     Create an inline keyboard with the provided year and month
     :param int year: Year to use in the calendar, if None the current year is used.
