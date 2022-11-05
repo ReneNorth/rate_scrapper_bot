@@ -1,10 +1,7 @@
 import logging
-import json
 import os
 import sys
-import re
 from logging.handlers import RotatingFileHandler
-from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 
 
 # костыль 1 - добавить в системные пути абсолютный путь
