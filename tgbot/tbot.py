@@ -25,7 +25,7 @@ import telegramcalendar
 
 
 load_dotenv()
-tg_token = os.getenv('TG_TOKEN_TEST')
+tg_token = os.getenv('TG_TOKEN')
 
 logger = logging.getLogger(__name__)
 for handler in logging.root.handlers[:]:
