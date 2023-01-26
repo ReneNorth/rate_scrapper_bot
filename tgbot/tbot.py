@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
+import texts_bot
 # from pathlib import Path
 
 
@@ -31,7 +32,7 @@ import telegramcalendar
 
 
 load_dotenv()
-tg_token = os.getenv('TG_TOKEN')
+TG_TOKEN_BOT = os.getenv('TG_TOKEN')
 
 logger = logging.getLogger(__name__)
 for handler in logging.root.handlers[:]:
@@ -49,8 +50,8 @@ logger.addHandler(handler)
 
 
 #  TG
-bot = Bot(token=tg_token)
-updater = Updater(token=tg_token)
+bot = Bot(token=TG_TOKEN_BOT)
+updater = Updater(token=TG_TOKEN_BOT)
 
 CURRENCY, DATE = range(2)
 ALL_CURRENCIES_LIST: list = [
@@ -72,14 +73,7 @@ def wake_up(update: Update, context: ContextTypes):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         reply_markup=button,
-        text=('\U0001F4B0  Отправляю курсы валют: EUR, CHF и RUB к тегне \U0001F4B0 \r\n'
-              '\r\n'
-              '\U0001F4C5 /rate_on_date вёрнет курсы валют на выбранную дату.\r\n'
-              '\U0001F4C8 /rate_for_month вёрнет средние курсы валют за месяц.\r\n'
-              '\U0001F4C6 /rate_year_to_date вёрнет средние курсы валют c начала года по текущую дату.\r\n'
-              #'\U0001F503 /update обновит базу данных сегодняшними данными.\r\n'
-              #'\U0001F916 /cancel перезапустит бота.\r\n'
-              )
+        text=texts_bot.HELLO_MESSAGE
     )
 
 
@@ -118,13 +112,12 @@ def inline_date_handler(update: Update, context: ContextTypes):
             logger.info(f'called res {query_rates}')
 
             if query_rates is None:
-                logger.info(f'actually res in {query_rates} --- shit')
+                logger.warning(f'result is empty {query_rates}')
                 context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text='Вернулся пустой результат, проверьте целостность БД'
                 )
                 return ConversationHandler.END
-        
             msg: str = format_query_to_msg(query_rates)
             context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -160,7 +153,6 @@ def rate_year_to_date(update: Update, context: ContextTypes):
             reply_markup=button,
             text=msg
         )
-        # return True
     except Exception as er:
         raise Exception(er)
 
@@ -179,20 +171,21 @@ def update_today(update: Update, context: ContextTypes):
 
 
 # def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-def cancel(update: Update, context):
+async def cancel(update: Update) -> int:
     """Cancels and ends the conversation."""
     user = update.message.from_user
-    logger.info("User %s canceled the conversation.", user.first_name)
-    update.message.reply_text("Введите /start, чтобы вывести доступные команды.",
-                              reply_markup=ReplyKeyboardMarkup(
-                                  MAIN_MENU_KEYBOARD))
+    logger.info(f'User {user.first_name} canceled the conversation.')
+
+    # TODO не работает отправка
+    await update.message.reply_text(
+        texts_bot.AFTER_CANCEL,
+        reply_markup=ReplyKeyboardMarkup(MAIN_MENU_KEYBOARD))
     return ConversationHandler.END
 
 
 def choose_month_calendar(update: Update, context):
     chat = update.effective_chat
     text = 'Выберите месяц'
-
     context.bot.send_message(
             chat_id=chat.id,
             text=text,
@@ -224,8 +217,8 @@ def inline_month_handler(update: Update, context):
 
 
 def main():
-    logger.info('bot initiated')
-    print('bot initiated')
+    logger.info('bot is running')
+    print('bot is running')
     updater.dispatcher.add_handler(CommandHandler('start', wake_up), 1)
     updater.dispatcher.add_handler(CommandHandler('update', update_today), 1)
     updater.dispatcher.add_handler(CommandHandler('rate_year_to_date',
@@ -252,7 +245,6 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel)],
         per_message=False
         ))
-
     updater.start_polling()
 
 

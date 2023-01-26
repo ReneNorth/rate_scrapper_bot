@@ -84,6 +84,7 @@ def request_all_rates():
     
 
 def create_database():
+    """ Recreates database from scratch """
     # if 'file exists':
     #    os.remove(db)
     try:
