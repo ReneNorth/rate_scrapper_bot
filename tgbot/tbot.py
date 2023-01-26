@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
+# from pathlib import Path
 
 
 # костыль 1 - добавить в системные пути абсолютный путь
@@ -9,8 +10,13 @@ from logging.handlers import RotatingFileHandler
 
 # костыль 2 - добавить parent
 # надо от этого избавиться
-parent = os.path.abspath('.')
-sys.path.insert(1, parent)
+# parent = os.path.abspath('.')
+# sys.path.insert(1, parent)
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(BASE_DIR)
+sys.path.append(BASE_DIR)
+# print(sys.path,'syspath')
 
 from rate_scrapper.rate_ext import get_rate, update_database
 from dotenv import load_dotenv
@@ -66,11 +72,14 @@ def wake_up(update: Update, context: ContextTypes):
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         reply_markup=button,
-        text=('\U0001F4B0  Отправляю курсы валют \U0001F4B0 \r\n'
+        text=('\U0001F4B0  Отправляю курсы валют: EUR, CHF и RUB к тегне \U0001F4B0 \r\n'
               '\r\n'
-              '\U0001F4C5 /rate_on_date вёрнет курсы валют на сегодня.\r\n'
-              '\U0001F503 /update обновит базу данных сегодняшними данными.\r\n'
-              '\U0001F916 /cancel перезапустит бота.\r\n')
+              '\U0001F4C5 /rate_on_date вёрнет курсы валют на выбранную дату.\r\n'
+              '\U0001F4C8 /rate_for_month вёрнет средние курсы валют за месяц.\r\n'
+              '\U0001F4C6 /rate_year_to_date вёрнет средние курсы валют c начала года по текущую дату.\r\n'
+              #'\U0001F503 /update обновит базу данных сегодняшними данными.\r\n'
+              #'\U0001F916 /cancel перезапустит бота.\r\n'
+              )
     )
 
 
