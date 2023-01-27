@@ -1,4 +1,3 @@
-from openpyxl import load_workbook
 import pandas as pd
 from logging.handlers import RotatingFileHandler
 from datetime import date, datetime
