@@ -3,6 +3,7 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 import texts_bot
+import datetime
 # from pathlib import Path
 
 
@@ -130,7 +131,7 @@ def inline_date_handler(update: Update, context: ContextTypes):
 
 def rate_year_to_date(update: Update, context: ContextTypes):
     logger.info('rate_year_to_date func called')
-    currency = ALL_CURRENCIES_LIST
+    currency = ALL_CURRENCIES_LIST # это явно лишнее
     try:
         button = ReplyKeyboardMarkup(keyboard=MAIN_MENU_KEYBOARD,
                                      resize_keyboard=True)
@@ -141,7 +142,7 @@ def rate_year_to_date(update: Update, context: ContextTypes):
             caller = 'rate_year_to_date'
 
         logger.info(f'call find_rate with args:'
-                    f'{date_rate}, {currency}, {caller}')
+                    f'{date_rate}, {ALL_CURRENCIES_LIST}, {caller}')
 
         logger.info(f'call res: {(date_rate, currency, caller)}')
         query_rates: tuple = get_rate(date_rate, currency, caller)

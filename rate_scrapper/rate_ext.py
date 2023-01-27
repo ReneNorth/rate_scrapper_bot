@@ -1,7 +1,7 @@
 from openpyxl import load_workbook
 import pandas as pd
 from logging.handlers import RotatingFileHandler
-from datetime import date
+from datetime import date, datetime
 import calendar
 import requests
 import sqlite3
@@ -201,8 +201,14 @@ def get_rate(date_rate, currency: list, caller: str=''):
     """Функция получает на вход дату и вызывающую функцию,
     подставляет необходимые значения,
     затем вызывает соответствующую функцию для запроса к базе.
+    
     """
+    # сейчас дата приходит из разных функций в разном формате 
+    # в зависимости от того, кто вызывает 
+    # TODO переделать эту логику 
     # добавить проверку даты на адекватность
+    print(type(date_rate))
+    print(date_rate)
     logger.info(f'caller is {caller}')
     try:
         if caller == 'rate_on_date_calend':
@@ -235,6 +241,7 @@ def get_rate(date_rate, currency: list, caller: str=''):
 
 # сделать тут корректные аннотации / формат проверки данных 
 # может быть regex
+# как правильно прописать ожидаемый формат данных?
 def calc_rate(begin_date, end_date, currency):
     try:
         logger.info('establish connection with the DB')
