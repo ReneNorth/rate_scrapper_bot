@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # наверное вынести в .env
-SQLALCHEMY_DATABASE_URL = "sqlite:///./rates_db.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app/test_db.db"
 # SQLALCHEMY_DATABASE_URL = "postgresql://user:password@postgresserver/db"
 
 engine = create_engine(
