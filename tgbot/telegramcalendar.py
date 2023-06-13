@@ -22,19 +22,19 @@ logger.addHandler(handler)
 
 
 month_keyboard: list = [
-    [InlineKeyboardButton('2022', callback_data='2022')],
-    [InlineKeyboardButton('Январь', callback_data='01.2022'),
-     InlineKeyboardButton('Февраль', callback_data='02.2022'),
-     InlineKeyboardButton('Март', callback_data='03.2022')],
-    [InlineKeyboardButton('Апрель', callback_data='04.2022'),
-     InlineKeyboardButton('Май', callback_data='05.2022'),
-     InlineKeyboardButton('Июнь', callback_data='06.2022')],
-    [InlineKeyboardButton('Июль', callback_data='07.2022'),
-     InlineKeyboardButton('Август', callback_data='08.2022'),
-     InlineKeyboardButton('Сентябрь', callback_data='09.2022')],
-    [InlineKeyboardButton('Октябрь', callback_data='10.2022'),
-     InlineKeyboardButton('Ноябрь', callback_data='11.2022'),
-     InlineKeyboardButton('Декабрь', callback_data='12.2022')],
+    [InlineKeyboardButton('2023', callback_data='2023')],
+    [InlineKeyboardButton('Январь', callback_data='01.2023'),
+     InlineKeyboardButton('Февраль', callback_data='02.2023'),
+     InlineKeyboardButton('Март', callback_data='03.2023')],
+    [InlineKeyboardButton('Апрель', callback_data='04.2023'),
+     InlineKeyboardButton('Май', callback_data='05.2023'),
+     InlineKeyboardButton('Июнь', callback_data='06.2023')],
+    [InlineKeyboardButton('Июль', callback_data='07.2023'),
+     InlineKeyboardButton('Август', callback_data='08.2023'),
+     InlineKeyboardButton('Сентябрь', callback_data='09.2023')],
+    [InlineKeyboardButton('Октябрь', callback_data='10.2023'),
+     InlineKeyboardButton('Ноябрь', callback_data='11.2023'),
+     InlineKeyboardButton('Декабрь', callback_data='12.2023')],
 ]
 
 
