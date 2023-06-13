@@ -132,6 +132,8 @@ dmypy.json
 response_part
 response_web_table.html
 response.html
+request_test/
+temp/
 
 # Legacy
 .legacy.py
@@ -139,3 +141,4 @@ response.html
 # Ignore All (xlsx) files
 *.xlsx
 *.xls
+

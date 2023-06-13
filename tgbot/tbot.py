@@ -1,36 +1,23 @@
+
+
+from telegram.ext import (CallbackQueryHandler, CommandHandler, ContextTypes,
+                          ConversationHandler, Filters, MessageHandler,
+                          Updater)
+from telegram import (Bot, InlineKeyboardButton, InlineKeyboardMarkup,
+                      ReplyKeyboardMarkup, ReplyKeyboardRemove, Update)
+from dotenv import load_dotenv
+import texts_bot
+import telegramcalendar
+from logging.handlers import RotatingFileHandler
+
 import logging
 import os
 import sys
-from logging.handlers import RotatingFileHandler
-import texts_bot
-import datetime
-# from pathlib import Path
-
-
-# костыль 1 - добавить в системные пути абсолютный путь
-# sys.path.append(r'/Users/yury/Dev/projects/rate_scrapper_bot')
-
-# костыль 2 - добавить parent
-# надо от этого избавиться
-# parent = os.path.abspath('.')
-# sys.path.insert(1, parent)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(BASE_DIR)
 sys.path.append(BASE_DIR)
-# print(sys.path,'syspath')
 
 from rate_scrapper.rate_ext import get_rate, update_database
-from dotenv import load_dotenv
-from telegram import (Bot, ReplyKeyboardMarkup,
-                      ReplyKeyboardRemove, Update,
-                      InlineKeyboardButton, InlineKeyboardMarkup)
-from telegram.ext import (Updater, Filters, MessageHandler,
-                          CommandHandler, ConversationHandler,
-                          ContextTypes, CallbackQueryHandler)
-
-import telegramcalendar
-
 
 load_dotenv()
 TG_TOKEN_BOT = os.getenv('TG_TOKEN')
@@ -59,10 +46,10 @@ ALL_CURRENCIES_LIST: list = [
     'USD', 'EUR', 'CHF', 'RUB'
 ]
 MAIN_MENU_KEYBOARD: list = [
-        ['/rate_on_date'],
-        ['/rate_for_month'],
-        ['/rate_year_to_date'],
-        ['/update', '/start', '/cancel'],
+    ['/rate_on_date'],
+    ['/rate_for_month'],
+    ['/rate_year_to_date'],
+    ['/update', '/start', '/cancel'],
 ]
 
 
@@ -131,7 +118,7 @@ def inline_date_handler(update: Update, context: ContextTypes):
 
 def rate_year_to_date(update: Update, context: ContextTypes):
     logger.info('rate_year_to_date func called')
-    currency = ALL_CURRENCIES_LIST # это явно лишнее
+    currency = ALL_CURRENCIES_LIST  # это явно лишнее
     try:
         button = ReplyKeyboardMarkup(keyboard=MAIN_MENU_KEYBOARD,
                                      resize_keyboard=True)
@@ -188,11 +175,11 @@ def choose_month_calendar(update: Update, context):
     chat = update.effective_chat
     text = 'Выберите месяц'
     context.bot.send_message(
-            chat_id=chat.id,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=telegramcalendar.month_keyboard),
-        )
+        chat_id=chat.id,
+        text=text,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=telegramcalendar.month_keyboard),
+    )
     return True
 
 
@@ -234,7 +221,7 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', cancel)],
         per_message=False
-        ))
+    ))
 
     updater.dispatcher.add_handler(ConversationHandler(
         entry_points=[
@@ -245,7 +232,7 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', cancel)],
         per_message=False
-        ))
+    ))
     updater.start_polling()
 
 
